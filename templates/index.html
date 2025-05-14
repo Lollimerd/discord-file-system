@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: beige;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input[type="file"] {
+            border: 1px solid #ccc;
+            padding: 5px;
+            width: 100%;
+        }
+
+        .form-group input[type="submit"] {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .postcard{
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload files</h1>
+        <form method="POST" action="/upload" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Select a file:</label>
+                <input type="file" id="file" name="file">
+            </div>
+            <div class="form-group">
+                <label for="channel">Channel Name:</label>
+                <input type="text" id="channel" name="channel" required><br>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Upload">
+            </div>
+        </form>
+
+        <h1>Download files</h1>
+        <form method="POST" action="/download" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="files">File Name:</label>
+                <input type="text" id="files" name="files" required><br>
+            </div>
+            <div class="form-group">
+                <label for="channels">Name of channel:</label>
+                <input type="text" id="channels" name="channels" required><br>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Download">
+            </div>
+        </form>
+    </div>
+</body>
+</html>

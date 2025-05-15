@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, send_file
-import discord, os, threading, logging, json, os, colorlog
+import discord, os, threading, logging, json, colorlog
 from discord.ext import commands
 from dis_commands import *
 
@@ -260,7 +260,7 @@ def just_in_case(metadata, metadata_filename):
 
 # Run the Flask app in a separate thread
 def run_flask():
-    app.run(use_reloader=False)
+    app.run(use_reloader=False, port=5000, host="127.0.0.1")
 
 if __name__ == '__main__':
     threading.Thread(target=run_flask).start()

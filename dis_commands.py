@@ -8,7 +8,7 @@ intents.message_content = True  # Enable Message Content intent
 intents.members = True
 
 # Discord bot setup
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.command(name='channel_info')
 async def channel_info(ctx, channel_id: int):

@@ -35,11 +35,11 @@ DATA_DIRECTORY = 'Data'
 if not os.path.exists(DATA_DIRECTORY):
     os.makedirs(DATA_DIRECTORY)
 
-chunk_size = 25 * 1024 * 1024  # 25 MB, for example
-
 kb = 1024
 mb = kb * 1024
 gb = mb * 1024
+
+chunk_size = 10 * mb  # find max according to discord api docs
 
 @bot.event
 async def on_ready():
@@ -260,7 +260,7 @@ def just_in_case(metadata, metadata_filename):
 
 # Run the Flask app in a separate thread
 def run_flask():
-    app.run(use_reloader=False, port=5000, host="127.0.0.1")
+    app.run(use_reloader=False, port=5000, host="0.0.0.0")
 
 if __name__ == '__main__':
     threading.Thread(target=run_flask).start()

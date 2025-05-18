@@ -36,7 +36,7 @@ if not os.path.exists(DATA_DIRECTORY):
 # creation of metadata directory
 metadata_directory = 'metadata'
 
-chunk_size = 25 * 1024 * 1024  # 25 MB max for discord free
+chunk_size = 10 * 1024 * 1024  # find max according to discord api docs
 
 kb = 1024
 mb = kb * 1024
@@ -287,7 +287,7 @@ async def download(channel_name, filename):
 
 # Run the Flask app in a separate thread
 def run_flask():
-    app.run(use_reloader=False)
+    app.run(use_reloader=False, port=5000, host="0.0.0.0")
 
 if __name__ == '__main__':
     threading.Thread(target=run_flask).start()

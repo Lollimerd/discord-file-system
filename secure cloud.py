@@ -1,8 +1,8 @@
 from flask import Flask, request, render_template, send_file
 import discord, os, threading, logging, json, asyncio, colorlog
-from discord.ext import commands
 from cryptography.fernet import Fernet
 from dis_commands import *
+
 # Initialize the Flask app
 app = Flask(__name__)
 
@@ -233,7 +233,7 @@ async def download(channel_name, filename):
     try:  # decrypt metadata
         decrypted_metadata_content = cipher.decrypt(encrypted_metadata_content)
         metadata = json.loads(decrypted_metadata_content.decode())
-        logging.info(f"metadata {metadata} loaded")
+        logging.info(f"metadata {metadata_filename} loaded") # need to not print out metadata contents
     except json.JSONDecodeError as e:
         logging.error(f"Failed to decode metadata: {e}")
         print(f"Failed to decode metadata: {e}", 400)

@@ -1,6 +1,5 @@
 from flask import Flask, request, render_template, send_file
 import discord, os, threading, logging, json, colorlog
-from discord.ext import commands
 from dis_commands import *
 
 # Initialize the Flask app

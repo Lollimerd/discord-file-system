@@ -1,13 +1,16 @@
 from flask import Flask, request, render_template, send_file
 import discord, os, threading, logging, json, colorlog
+from dotenv import load_dotenv
 from dis_commands import *
+
+load_dotenv()
 
 # Initialize the Flask app
 app = Flask(__name__)
 
 # Discord bot setup
 # bot = commands.Bot(command_prefix="!", intents=intents)
-TOKEN = os.getenv('bot_token')
+TOKEN = os.getenv("bot_token")
 
 # Setup logging
 # Configure colorlog for colored output

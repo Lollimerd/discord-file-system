@@ -1,13 +1,16 @@
 from flask import Flask, request, render_template, send_file
 import discord, os, threading, logging, json, asyncio, colorlog
 from cryptography.fernet import Fernet
+from dotenv import load_dotenv
 from dis_commands import *
+
+load_dotenv()
 
 # Initialize the Flask app
 app = Flask(__name__)
 
 # bot token
-TOKEN = os.getenv('bot_token')
+TOKEN = os.getenv("bot_token")
 
 # Configure colorlog for colored output
 handler = colorlog.StreamHandler()

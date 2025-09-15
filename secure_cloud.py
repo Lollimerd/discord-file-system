@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, send_file
-import discord, os, threading, logging, json, asyncio, colorlog
+import discord, os, threading, logging, json, asyncio, colorlog, base64
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from dis_commands import *

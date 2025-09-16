@@ -3,37 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <title>Welcome - Select Server</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: beige; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .container { max-width: 400px; width: 100%; background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
-        h1 { margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input[type="text"] { border: 1px solid #ccc; padding: 10px; width: 100%; box-sizing: border-box; border-radius: 4px; }
-        .form-group input[type="submit"] { background-color: #4CAF50; border: none; color: white; padding: 12px 20px; font-size: 16px; cursor: pointer; width: 100%; border-radius: 4px; }
-        .error { color: #D8000C; background-color: #FFBABA; border: 1px solid; margin-top: 20px; padding: 10px; border-radius: 3px; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="container">
-        <h1>Discord Cloud Storage</h1>
-        <p>Please enter your Server ID to continue.</p>
+<body class="bg-slate-900 text-white flex justify-center items-center h-screen">
+    <div id="login-card" class="bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-md opacity-0">
+        <h1 class="text-3xl font-bold text-center mb-2 text-violet-400">Discord Cloud Storage</h1>
+        <p class="text-center text-slate-400 mb-6">Please enter your Server ID to continue.</p>
+        
         <form action="/select_server" method="POST">
-            <div class="form-group">
-                <label for="server_id">Server ID:</label>
-                <input type="text" id="server_id" name="server_id" required>
+            <div class="mb-4">
+                <label for="server_id" class="block mb-2 text-sm font-medium text-slate-300">Server ID</label>
+                <input type="text" id="server_id" name="server_id" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5" required>
             </div>
-            <div class="form-group">
-                <input type="submit" value="Continue">
-            </div>
+            <button type="submit" class="w-full text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">Continue</button>
         </form>
+
         {% with messages = get_flashed_messages() %}
             {% if messages %}
-                <div class="error">
+                <div class="mt-4 bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
                     {{ messages[0] }}
                 </div>
             {% endif %}
         {% endwith %}
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script>
+        anime({
+            targets: '#login-card',
+            opacity: [0, 1],
+            translateY: [20, 0],
+            duration: 800,
+            easing: 'easeOutQuad'
+        });
+    </script>
 </body>
 </html>

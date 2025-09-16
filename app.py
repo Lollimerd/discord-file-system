@@ -15,6 +15,7 @@ TOKEN = os.getenv("bot_token")
 ENCRYPTION_KEY = os.getenv("enc_key").encode()
 cipher = Fernet(ENCRYPTION_KEY)
 
+# (Logging, Data Directory, and Constants remain the same)
 handler = colorlog.StreamHandler()
 handler.setFormatter(colorlog.ColoredFormatter(
     '%(log_color)s%(levelname)s: %(message)s',
@@ -23,12 +24,10 @@ handler.setFormatter(colorlog.ColoredFormatter(
 logging.getLogger().addHandler(handler)
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
+DATA_DIRECTORY = 'transfer'
+if not os.path.exists(DATA_DIRECTORY): os.makedirs(DATA_DIRECTORY)
+CHUNK_SIZE = 10 * 1024 * 1024
 
-DATA_DIRECTORY = 'Data'
-if not os.path.exists(DATA_DIRECTORY):
-    os.makedirs(DATA_DIRECTORY)
-
-CHUNK_SIZE = 20 * 1024 * 1024
 
 @bot.event
 async def on_ready():
@@ -40,7 +39,6 @@ async def on_ready():
 def index():
     return render_template('index.html')
 
-## ## MODIFIED ROUTE: This now validates and REDIRECTS to the server-specific page ## ##
 @app.route('/select_server', methods=['POST'])
 def select_server():
     server_id = request.form.get('server_id')
@@ -52,73 +50,68 @@ def select_server():
     guild_is_valid = future.result()
 
     if guild_is_valid:
-        # Redirect to the new GET route for the server page
         return redirect(url_for('server_page', server_id=server_id))
     else:
         flash(f"Could not access Server ID {server_id}. Please check the ID and ensure the bot is a member.")
         return redirect(url_for('index'))
 
-## ## NEW ROUTE: This handles displaying the main application page for a server ## ##
+## ## THIS IS THE MAIN BACKEND CHANGE ## ##
 @app.route('/server/<server_id>')
 def server_page(server_id):
-    # You might add another validation here for security if needed
-    return render_template('main.html', server_id=server_id)
+    # Fetch server name and channel list from the bot
+    future = asyncio.run_coroutine_threadsafe(fetch_channels_from_guild(server_id), bot.loop)
+    server_data = future.result()
 
+    if server_data:
+        return render_template(
+            'main.html', 
+            server_id=server_id, 
+            guild_name=server_data['guild_name'], 
+            channels=server_data['channels']
+        )
+    else:
+        # Handle case where server becomes inaccessible
+        flash(f"Could not retrieve data for Server ID {server_id}.")
+        return redirect(url_for('index'))
+
+# (The /upload and /download routes remain the same)
 @app.route('/upload', methods=['POST'])
 def upload_file():
     server_id = request.form.get('server_id')
+    # ## We now get 'channel' from the select dropdown ##
+    channel_name = request.form.get('channel') 
     file = request.files.get('file')
-    channel_name = request.form.get('channel')
 
-    if not all([server_id, file, channel_name]):
-        return 'Missing form data', 400
-    if file.filename == '':
-        return 'No selected file', 400
+    if not all([server_id, file, channel_name]): return 'Missing form data', 400
+    if file.filename == '': return 'No selected file', 400
 
     file_path = os.path.join(DATA_DIRECTORY, file.filename)
     file.save(file_path)
     logger.info(f"File saved to {file_path}")
-    
     secure_upload = request.form.get('encrypt') == 'true'
-
     asyncio.run_coroutine_threadsafe(
-        upload_to_discord(file_path, file.filename, server_id, channel_name, secure_upload), 
-        bot.loop
+        upload_to_discord(file_path, file.filename, server_id, channel_name, secure_upload), bot.loop
     )
-    
-    ## ## MODIFIED: Pass server_id to the confirmation page ## ##
     return render_template('uploaded.html', server_id=server_id)
 
 @app.route('/download', methods=['POST'])
 def download_route():
     server_id = request.form.get('server_id')
     filename = request.form.get('files')
-    channel_name = request.form.get('channels')
-
+    # ## We now get 'channels' from the select dropdown ##
+    channel_name = request.form.get('channels') 
     logger.info(f"Download for '{filename}' from server '{server_id}' in channel '{channel_name}'")
-    
     future = asyncio.run_coroutine_threadsafe(download_from_discord(server_id, channel_name, filename), bot.loop)
     file_path = future.result() 
-
     if file_path and os.path.exists(file_path):
         return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
     else:
-        # We can also pass the server_id to an error page if we create one
         return "File not found or failed to download.", 404
 
-@app.route('/get_channels', methods=['POST'])
-def get_channels_route():
-    server_id = request.form.get('server_id')
-    
-    future = asyncio.run_coroutine_threadsafe(fetch_channels_from_guild(server_id), bot.loop)
-    result = future.result()
+## ## THIS ROUTE IS NO LONGER NEEDED AND CAN BE REMOVED ## ##
+# @app.route('/get_channels', methods=['POST']) ...
 
-    if result is None:
-        return render_template('channels.html', channels=None, guild_id=server_id, guild_name="Unknown")
-    
-    return render_template('channels.html', channels=result['channels'], guild_id=server_id, guild_name=result['guild_name'])
-
-# --- (The rest of the Discord Logic functions remain the same) ---
+# --- (Discord Logic functions remain the same) ---
 # ...
 async def is_guild_available(guild_id):
     try:
@@ -133,16 +126,13 @@ async def fetch_channels_from_guild(guild_id):
         if not guild:
             logger.error(f"Guild with ID {guild_id} not found.")
             return None
-
         available_channels = [
             {"name": channel.name, "id": channel.id}
             for channel in guild.text_channels
             if channel.permissions_for(guild.me).send_messages
         ]
-        
         logger.info(f"Found {len(available_channels)} accessible channels in server '{guild.name}'.")
         return {"channels": available_channels, "guild_name": guild.name}
-
     except Exception as e:
         logger.error(f"An error occurred while fetching channels: {e}")
         return None
@@ -152,12 +142,10 @@ async def upload_to_discord(file_path, filename, server_id, channel_name, secure
     if not guild:
         logger.error(f"Upload failed: Guild {server_id} not found.")
         return
-    
     channel = discord.utils.get(guild.text_channels, name=channel_name)
     if not channel:
         logger.error(f'Upload failed: Channel "{channel_name}" not found in server {guild.name}.')
         return
-
     if secure:
         logger.info("Encryption enabled. Encrypting file...")
         with open(file_path, 'rb') as f: data = f.read()
@@ -196,18 +184,15 @@ async def upload_to_discord(file_path, filename, server_id, channel_name, secure
     os.remove(file_path) 
     logger.info("Upload complete and local files cleaned up.")
 
-
 async def download_from_discord(server_id, channel_name, filename):
     guild = bot.get_guild(int(server_id))
     if not guild:
         logger.error(f"Download failed: Guild {server_id} not found.")
         return None
-        
     channel = discord.utils.get(guild.text_channels, name=channel_name)
     if not channel:
         logger.error(f"Download failed: Channel '{channel_name}' not found in server {guild.name}.")
         return None
-
     metadata_filename = f"{filename.replace(' ', '_')}_metadata.json"
     metadata_message = None
     async for message in channel.history(limit=500):
@@ -254,6 +239,7 @@ async def download_from_discord(server_id, channel_name, filename):
     logger.info(f"File reassembly complete. Path: {reassembled_file_path}")
     return reassembled_file_path
 
+# --- Main Execution ---
 def run_flask():
     app.run(use_reloader=False, port=5000, host="0.0.0.0")
 

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Channels</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: beige; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #4CAF50; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        .no-channels { text-align: center; color: #888; margin-top: 20px; }
+        a { display: inline-block; margin-top: 20px; color: #4CAF50; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Channels in Server: {{ guild_name }} ({{ guild_id }})</h1>
+        
+        {% if channels %}
+            <p>The bot can see and post in the following text channels:</p>
+            <table>
+                <thead><tr><th>Channel Name</th><th>Channel ID</th></tr></thead>
+                <tbody>
+                    {% for channel in channels %}
+                        <tr><td>#{{ channel.name }}</td><td>{{ channel.id }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="no-channels">
+                Could not find any available text channels. 😟<br>
+                Please ensure the Server ID is correct and that the bot has been invited to the server with the correct permissions.
+            </p>
+        {% endif %}
+        
+        <a href="{{ url_for('server_page', server_id=guild_id) }}">← Go Back to Dashboard</a>
+    </div>
+</body>
+</html>

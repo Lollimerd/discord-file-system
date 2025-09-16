@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Discord Cloud Storage</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: beige; }
+        h1 { text-align: center; }
+        .container { max-width: 400px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input[type="file"], .form-group input[type="text"] { border: 1px solid #ccc; padding: 8px; width: 100%; box-sizing: border-box; border-radius: 4px; }
+        .form-group input[type="submit"] { background-color: #4CAF50; border: none; color: white; padding: 10px 20px; text-align: center; font-size: 16px; cursor: pointer; width: 100%; border-radius: 4px; }
+        .checkbox-group { display: flex; align-items: center; }
+        .checkbox-group input { margin-right: 10px; }
+        .server-info { text-align: center; margin-bottom: 20px; font-weight: bold; }
+        .server-info a { font-size: 0.8em; font-weight: normal; }
+    </style>
+</head>
+<body>
+    <div class="server-info">
+        <span>Active Server ID: {{ server_id }}</span>
+        <br>
+        <a href="/">Change Server</a>
+    </div>
+
+    <div class="container">
+        <h1>Upload Files</h1>
+        <form method="POST" action="/upload" enctype="multipart/form-data">
+            <input type="hidden" name="server_id" value="{{ server_id }}">
+            <div class="form-group">
+                <label for="file">Select a file:</label>
+                <input type="file" id="file" name="file" required>
+            </div>
+            <div class="form-group">
+                <label for="channel">Channel Name:</label>
+                <input type="text" id="channel" name="channel" required>
+            </div>
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="encrypt" name="encrypt" value="true">
+                <label for="encrypt">Encrypt file?</label>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Upload">
+            </div>
+        </form>
+    </div>
+
+    <div class="container">
+        <h1>Download Files</h1>
+        <form method="POST" action="/download">
+            <input type="hidden" name="server_id" value="{{ server_id }}">
+            <div class="form-group">
+                <label for="files">File Name:</label>
+                <input type="text" id="files" name="files" required>
+            </div>
+            <div class="form-group">
+                <label for="channels">Name of channel:</label>
+                <input type="text" id="channels" name="channels" required>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Download">
+            </div>
+        </form>
+    </div>
+
+    <div class="container">
+        <h1>Find Available Channels</h1>
+        <form method="POST" action="/get_channels">
+            <input type="hidden" name="server_id" value="{{ server_id }}">
+            <div class="form-group">
+                <input type="submit" value="Find Channels on This Server">
+            </div>
+        </form>
+    </div>
+</body>
+</html>

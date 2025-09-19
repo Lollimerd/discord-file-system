@@ -1,7 +1,7 @@
 from dis_commands import bot
 import logging, colorlog, os
 
-# (Logging, Data Directory, and Constants remain the same)
+# (Logging, Data Directory, and Constants Setup)
 handler = colorlog.StreamHandler()
 handler.setFormatter(colorlog.ColoredFormatter(
     '%(log_color)s%(levelname)s: %(message)s',

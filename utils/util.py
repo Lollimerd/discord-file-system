@@ -8,7 +8,7 @@ handler.setFormatter(colorlog.ColoredFormatter(
     log_colors={'DEBUG':'bold_cyan','INFO':'bold_green','WARNING':'bold_yellow','ERROR':'red','CRITICAL':'bold_red'}
 ))
 logging.getLogger().addHandler(handler)
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # --- Discord Logic functions ---

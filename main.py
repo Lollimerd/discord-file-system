@@ -125,8 +125,8 @@ async def upload_to_discord(file_path, original_filename, server_id, channel_nam
             await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path).replace(' ', '_')))
             if chunk_path != file_path:
                 os.remove(chunk_path)
-            logger.info("Waiting 0.1s to avoid rate limits...")
-            await asyncio.sleep(0.1) # 🐢 Proactive delay
+            logger.info("Waiting 1.5s to avoid rate limits...")
+            await asyncio.sleep(1.5) # 🐢 Proactive delay
 
         logger.info(f"Successfully uploaded '{original_filename}'.")
     except Exception as e:
@@ -135,6 +135,36 @@ async def upload_to_discord(file_path, original_filename, server_id, channel_nam
         # ## Clean up the main temporary file ##
         if os.path.exists(file_path):
             os.remove(file_path)
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    server_id = request.form.get('server_id')
+    channel_name = request.form.get('channel')
+    secure_upload = request.form.get('encrypt') == 'true'
+    files = request.files.getlist('files[]')
+
+    if not all([server_id, channel_name, files]):
+        return 'Missing form data', 400
+
+    for file in files:
+        if file.filename == '':
+            continue
+        original_filename = file.filename
+
+        # Create a unique filename to prevent overwrites/race conditions 
+        _, ext = os.path.splitext(original_filename)
+        unique_filename = f"{uuid.uuid4()}{ext}"
+        file_path = os.path.join(DATA_DIRECTORY, unique_filename)
+        file.save(file_path)
+        logger.info(f"File '{original_filename}' saved temporarily as '{unique_filename}'")
+
+        # ## Pass the unique file path to the upload task ##
+        asyncio.run_coroutine_threadsafe(
+            upload_to_discord(file_path, original_filename, server_id, channel_name, secure_upload), 
+            bot.loop
+        )
+
+    return {"status": "success", "message": f"{len(files)} files queued for upload."}
 
 async def download_from_discord(server_id, channel_name, filename):
     """ Downloads and reassembles a file from Discord messages. """
@@ -206,36 +236,6 @@ async def download_from_discord(server_id, channel_name, filename):
         logger.info("File decrypted successfully.")
     logger.info(f"File reassembly complete. Path: {reassembled_file_path}")
     return reassembled_file_path
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    server_id = request.form.get('server_id')
-    channel_name = request.form.get('channel')
-    secure_upload = request.form.get('encrypt') == 'true'
-    files = request.files.getlist('files[]')
-
-    if not all([server_id, channel_name, files]):
-        return 'Missing form data', 400
-
-    for file in files:
-        if file.filename == '':
-            continue
-        original_filename = file.filename
-
-        # Create a unique filename to prevent overwrites/race conditions 
-        _, ext = os.path.splitext(original_filename)
-        unique_filename = f"{uuid.uuid4()}{ext}"
-        file_path = os.path.join(DATA_DIRECTORY, unique_filename)
-        file.save(file_path)
-        logger.info(f"File '{original_filename}' saved temporarily as '{unique_filename}'")
-
-        # ## Pass the unique file path to the upload task ##
-        asyncio.run_coroutine_threadsafe(
-            upload_to_discord(file_path, original_filename, server_id, channel_name, secure_upload), 
-            bot.loop
-        )
-
-    return {"status": "success", "message": f"{len(files)} files queued for upload."}
 
 @app.route('/download', methods=['POST'])
 def download_route():

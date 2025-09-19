@@ -43,3 +43,4 @@ pip-delete-this-directory.txt
 .pyright/
 .pytest_cache/
 *__pycache__/
+.pyc

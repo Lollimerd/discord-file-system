@@ -1,7 +1,3 @@
-Of course\! Here is a comprehensive README documentation for your Discord Cloud Storage project based on the provided codebase.
-
------
-
 # Discord Cloud Storage
 
 [](https://www.python.org/)

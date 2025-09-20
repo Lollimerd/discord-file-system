@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, send_file, redirect, url_for, flash
-import discord, os, threading, json, asyncio, uuid
+import discord, os, threading, json, asyncio, uuid, shutil
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from utils.util import find_guild_by_name, fetch_channels_from_guild, logger
@@ -63,81 +63,109 @@ def server_page(server_id):
         flash(f"Could not retrieve data for Server ID {server_id}.")
         return redirect(url_for('index'))
 
-async def upload_to_discord(file_path, original_filename, server_id, channel_name, secure):
+def _process_and_chunk_file(source_path, secure):
+    """
+    Handles in-place encryption and consistent chunking for any given file.
+    All chunks, including for single-part files, will contain '_part_'.
+    Returns a tuple of (list of full chunk paths, list of chunk basenames).
+    """
+    if secure:
+        with open(source_path, 'rb') as f: data = f.read()
+        with open(source_path, 'wb') as f: f.write(cipher.encrypt(data))
+
+    chunk_paths = []
+    chunk_basenames = []
+    base, ext = os.path.splitext(os.path.basename(source_path))
+
+    if os.path.getsize(source_path) > CHUNK_SIZE:
+        with open(source_path, 'rb') as f:
+            for i, chunk_data in enumerate(iter(lambda: f.read(CHUNK_SIZE), b'')):
+                chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_{i}{ext}")
+                with open(chunk_path, 'wb') as cf: cf.write(chunk_data)
+                chunk_paths.append(chunk_path)
+                chunk_basenames.append(os.path.basename(chunk_path))
+    else:
+        # For single-part files, rename them to follow the chunking convention
+        chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_0{ext}")
+        os.rename(source_path, chunk_path)
+        chunk_paths.append(chunk_path)
+        chunk_basenames.append(os.path.basename(chunk_path))
+
+    # Clean up the original source file if it was chunked into multiple parts
+    if os.path.exists(source_path):
+        os.remove(source_path)
+
+    return chunk_paths, chunk_basenames
+
+async def upload_single_file(file_path, original_filename, server_id, channel_name, secure):
+    """Handles the upload process for a single file using the unified chunker."""
     guild = bot.get_guild(int(server_id))
-    if not guild:
-        logger.error(f"Upload failed: Guild {server_id} not found.")
-        return
-    
+    if not guild: return logger.error(f"Upload failed: Guild {server_id} not found.")
     channel = discord.utils.get(guild.text_channels, name=channel_name)
-    if not channel:
-        logger.error(f'Upload failed: Channel "{channel_name}" not found in server {guild.name}.')
-        return
+    if not channel: return logger.error(f'Upload failed: Channel "{channel_name}" not found.')
 
     try:
-        if secure:
-            logger.info(f"Encrypting '{original_filename}'...")
-            with open(file_path, 'rb') as f: data = f.read()
-            encrypted_data = cipher.encrypt(data)
-            with open(file_path, 'wb') as f: f.write(encrypted_data)
+        # Use the unified helper for all processing and naming
+        chunk_paths, chunk_basenames = _process_and_chunk_file(file_path, secure)
 
-        chunks = []
-        file_size = os.path.getsize(file_path)
-
-        if file_size > CHUNK_SIZE:
-            logger.info(f"Chunking '{original_filename}'...")
-            
-            # ## Use the temporary file's name for chunking to avoid path errors ##
-            temp_basename = os.path.basename(file_path)
-            base_name, ext = os.path.splitext(temp_basename)
-
-            with open(file_path, 'rb') as f:
-                chunk_num = 0
-                while True:
-                    chunk_data = f.read(CHUNK_SIZE)
-                    if not chunk_data: break
-                    
-                    chunk_filename = os.path.join(DATA_DIRECTORY, f"{base_name}_part_{chunk_num}{ext}")
-                    with open(chunk_filename, 'wb') as chunk_file:
-                        chunk_file.write(chunk_data)
-                    chunks.append(chunk_filename)
-                    chunk_num += 1
-        else:
-            chunks.append(file_path)
-
-        # ## Note: 'original_filename' is passed to metadata, preserving the path ##
         metadata = {
             "original_filename": original_filename,
-            "chunks": [os.path.basename(c).replace(' ', '_') for c in chunks],
+            "chunks": chunk_basenames,
             "encrypted": secure
         }
         metadata_filename = os.path.join(DATA_DIRECTORY, f"{uuid.uuid4()}_metadata.json")
-        
         metadata_content = json.dumps(metadata).encode()
         if secure: metadata_content = cipher.encrypt(metadata_content)
-            
         with open(metadata_filename, 'wb') as f: f.write(metadata_content)
 
-        await channel.send(file=discord.File(metadata_filename))
+        await channel.send(file=discord.File(metadata_filename, filename=f"{original_filename}_metadata.json"))
         os.remove(metadata_filename)
 
-        for chunk_path in chunks:
-            await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path).replace(' ', '_')))
-            if chunk_path != file_path:
-                os.remove(chunk_path)
-            logger.info("Waiting 0.5s to avoid rate limits...")
-            await asyncio.sleep(0.5) # 🐢 Proactive delay
+        for chunk_path in chunk_paths:
+            await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path)))
+            os.remove(chunk_path) # Clean up chunk as we go
+            await asyncio.sleep(1.5)
 
         logger.info(f"Successfully uploaded '{original_filename}'.")
     except Exception as e:
         logger.error(f"An error occurred during upload for '{original_filename}': {e}")
+
+async def upload_folder(metadata_obj, chunk_paths, server_id, channel_name):
+    """Uploads a single metadata file, then all the chunks for a folder."""
+    guild = bot.get_guild(int(server_id))
+    if not guild:
+        logger.error(f"Upload failed: Guild {server_id} not found.")
+        return
+    channel = discord.utils.get(guild.text_channels, name=channel_name)
+    if not channel:
+        logger.error(f'Upload failed: Channel "{channel_name}" not found.')
+        return
+
+    # 1. Prepare and Upload Metadata
+    metadata_filename = os.path.join(DATA_DIRECTORY, f"{uuid.uuid4()}_metadata.json")
+    metadata_content = json.dumps(metadata_obj, indent=2).encode()
+    if metadata_obj.get("encrypted", False): metadata_content = cipher.encrypt(metadata_content)
+    with open(metadata_filename, 'wb') as f: f.write(metadata_content)
+
+    try:
+        logger.info(f"Uploading metadata for folder '{metadata_obj['folder_name']}'...")
+        await channel.send(file=discord.File(metadata_filename, filename=f"{metadata_obj['folder_name']}_metadata.json"))
     finally:
-        # ## Clean up the main temporary file ##
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        os.remove(metadata_filename)
+
+    # 2. Upload All Chunks
+    logger.info(f"Uploading {len(chunk_paths)} total chunks...")
+    for i, chunk_path in enumerate(chunk_paths):
+        try:
+            logger.info(f"Uploading chunk {i+1}/{len(chunk_paths)}: {os.path.basename(chunk_path)}")
+            await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path).replace(' ', '_')))
+            await asyncio.sleep(1.5)
+        finally:
+            if os.path.exists(chunk_path): os.remove(chunk_path)
+    logger.info(f"Successfully uploaded folder '{metadata_obj['folder_name']}'.")
 
 @app.route('/upload', methods=['POST'])
-def upload_file():
+def upload_handler():
     server_id = request.form.get('server_id')
     channel_name = request.form.get('channel')
     secure_upload = request.form.get('encrypt') == 'true'
@@ -146,111 +174,189 @@ def upload_file():
     if not all([server_id, channel_name, files]):
         return 'Missing form data', 400
 
-    total_files = len(files)
-    for file in files:
-        if file.filename == '':
-            total_files -= 1
-            continue
-        original_filename = file.filename
+    is_folder_upload = any('/' in f.filename for f in files if f.filename)
 
-        # Create a unique filename to prevent overwrites
-        _, ext = os.path.splitext(original_filename)
-        unique_filename = f"{uuid.uuid4()}{ext}"
-        file_path = os.path.join(DATA_DIRECTORY, unique_filename)
-        file.save(file_path)
-        logger.info(f"File '{original_filename}' saved temporarily as '{unique_filename}'")
+    if is_folder_upload:
+        logger.info("Folder upload detected.")
+        folder_tree = {}
+        all_chunk_paths = []
+        folder_name = os.path.dirname(files[0].filename) or "upload"
 
-        # Schedule the coroutine to run on the bot's event loop
-        future = asyncio.run_coroutine_threadsafe(
-            upload_to_discord(file_path, original_filename, server_id, channel_name, secure_upload), 
-            bot.loop
-        )
+        for file in files:
+            if not file.filename: continue
+            
+            temp_file_path = os.path.join(DATA_DIRECTORY, f"{uuid.uuid4()}{os.path.splitext(file.filename)[1]}")
+            file.save(temp_file_path)
 
-        # ✅ **KEY CHANGE HERE** ✅
-        # Wait for the future to complete. This blocks the loop
-        # until the current file (metadata + all chunks) is fully uploaded.
+            # Use the unified helper for processing
+            processed_chunks, processed_basenames = _process_and_chunk_file(temp_file_path, secure_upload)
+            all_chunk_paths.extend(processed_chunks)
+
+            # Build the folder tree structure
+            path_parts = file.filename.split('/')
+            current_level = folder_tree
+            for part in path_parts[:-1]:
+                current_level = current_level.setdefault(part, {"type": "directory", "children": {}})["children"]
+            current_level[path_parts[-1]] = {"type": "file", "chunks": processed_basenames}
+
+        final_metadata = {
+            "upload_type": "folder", "folder_name": folder_name, "encrypted": secure_upload,
+            "tree": folder_tree.get(folder_name, {}).get("children", folder_tree)
+        }
+        
+        future = asyncio.run_coroutine_threadsafe(upload_folder(final_metadata, all_chunk_paths, server_id, channel_name), bot.loop)
         future.result()
+        return {"status": "success", "message": f"Folder '{folder_name}' uploaded."}
 
-    # The message now accurately reflects that the uploads are complete, not just queued.
-    return {"status": "success", "message": f"{total_files} files uploaded successfully."}
+    else:
+        logger.info("Individual file upload detected.")
+        for file in files:
+            if not file.filename: continue
+            
+            temp_file_path = os.path.join(DATA_DIRECTORY, f"{uuid.uuid4()}{os.path.splitext(file.filename)[1]}")
+            file.save(temp_file_path)
 
-async def download_from_discord(server_id, channel_name, filename):
-    """ Downloads and reassembles a file from Discord messages. """
-    # We now get 'channel_name' from the select dropdown ##
+            future = asyncio.run_coroutine_threadsafe(
+                upload_single_file(temp_file_path, file.filename, server_id, channel_name, secure_upload),
+                bot.loop
+            )
+            future.result()
+        return {"status": "success", "message": f"{len(files)} files uploaded."}
+
+async def download_from_discord(server_id, channel_name, requested_path):
+    """Downloads a file or folder, with synchronized and robust error handling."""
     guild = bot.get_guild(int(server_id))
-    if not guild:
-        logger.error(f"Download failed: Guild {server_id} not found.")
-        return None
-
-    # Get the channel object from the guild
+    if not guild: return logger.error(f"Download failed: Guild {server_id} not found.")
     channel = discord.utils.get(guild.text_channels, name=channel_name)
-    if not channel:
-        logger.error(f"Download failed: Channel '{channel_name}' not found in server {guild.name}.")
-        return None
-    
-    # ## Look for the metadata message first ##
-    metadata_filename = f"{filename.replace(' ', '_')}_metadata.json"
-    metadata_message = None
+    if not channel: return logger.error(f"Download failed: Channel '{channel_name}' not found.")
 
-    # Look for the metadata message in the channel history
-    async for message in channel.history(limit=500):
-        if message.attachments and message.attachments[0].filename == metadata_filename:
-            metadata_message = message
-            break
+    root_object_name = requested_path.split('/')[0]
+    metadata_filename_to_find = f"{root_object_name}_metadata.json"
     
-    # ## If metadata not found, abort ##
-    if not metadata_message:
-        logger.error(f"Metadata '{metadata_filename}' not found.")
-        return None
-     
-    logger.info("Metadata found. Downloading and parsing...")
-    metadata_attachment = metadata_message.attachments[0]
-    encrypted_metadata_content = await metadata_attachment.read()
+    logger.info("Building file cache from channel history...")
+    file_cache = {
+        attachment.filename: message
+        async for message in channel.history(limit=2000)
+        for attachment in message.attachments
+    }
+    logger.info(f"Cache built with {len(file_cache)} files.")
 
-    # Try to decrypt metadata; if fails, assume it's not encrypted
+    metadata_message = file_cache.get(metadata_filename_to_find)
+    if not metadata_message: return logger.error(f"Metadata for '{root_object_name}' not found.")
+
+    encrypted_metadata_content = await metadata_message.attachments[0].read()
     try:
-        decrypted_metadata_content = cipher.decrypt(encrypted_metadata_content)
-        metadata = json.loads(decrypted_metadata_content.decode())
-        logger.info("Metadata was encrypted and has been decrypted.")
+        metadata = json.loads(cipher.decrypt(encrypted_metadata_content))
     except Exception:
-        metadata = json.loads(encrypted_metadata_content.decode())
-        logger.info("Metadata was not encrypted.")
-
-    original_filename = metadata["original_filename"]
+        metadata = json.loads(encrypted_metadata_content)
+    
     is_encrypted = metadata.get("encrypted", False)
-    reassembled_file_path = os.path.join(DATA_DIRECTORY, original_filename)
 
-    with open(reassembled_file_path, 'wb') as reassembled_file:
-        for chunk_filename in metadata["chunks"]:
-            chunk_message = None
-            async for message in channel.history(limit=1000):
-                if message.attachments and message.attachments[0].filename == chunk_filename:
-                    chunk_message = message
-                    break
-            if not chunk_message:
-                logger.error(f"Chunk '{chunk_filename}' not found!")
-                os.remove(reassembled_file_path)
+    if metadata.get("upload_type") == "folder":
+        path_parts = requested_path.split('/')
+        if len(path_parts) > 1:
+            logger.info(f"Request is for a specific file inside a folder: {requested_path}")
+            current_item = {"children": metadata["tree"]}
+            for part in path_parts:
+                current_item = current_item.get("children", {}).get(part)
+                if not current_item:
+                    logger.error(f"Path '{requested_path}' not found in folder metadata.")
+                    return None
+            
+            if current_item.get("type") == "file":
+                reassembled_file_path = os.path.join(DATA_DIRECTORY, os.path.basename(requested_path))
+                all_chunks_found = True
+                with open(reassembled_file_path, 'wb') as f:
+                    for chunk_filename in current_item["chunks"]:
+                        if chunk_filename in file_cache:
+                            f.write(await file_cache[chunk_filename].attachments[0].read())
+                        else:
+                            all_chunks_found = False
+                            break
+                if not all_chunks_found: return None
+                if is_encrypted:
+                    with open(reassembled_file_path, 'rb') as f: data = f.read()
+                    with open(reassembled_file_path, 'wb') as f: f.write(cipher.decrypt(data))
+                return reassembled_file_path
+            else:
                 return None
-            chunk_content = await chunk_message.attachments[0].read()
-            reassembled_file.write(chunk_content)
-            logger.info(f"Downloaded and assembled chunk: {chunk_filename}")
+        else:
+            logger.info(f"Request is for the entire folder: {metadata['folder_name']}. Preparing ZIP.")
+            base_download_path = os.path.join(DATA_DIRECTORY, metadata['folder_name'])
+            if os.path.exists(base_download_path): shutil.rmtree(base_download_path)
+            os.makedirs(base_download_path)
 
-    if is_encrypted:
-        logger.info("File is encrypted. Decrypting now...")
-        with open(reassembled_file_path, 'rb') as f: encrypted_data = f.read()
-        decrypted_data = cipher.decrypt(encrypted_data)
+            await _build_folder_from_tree(channel, metadata["tree"], base_download_path, file_cache, is_encrypted)
+            
+            zip_path = os.path.join(DATA_DIRECTORY, f"{metadata['folder_name']}.zip")
+            shutil.make_archive(base_name=zip_path.replace('.zip', ''), format='zip', root_dir=base_download_path)
+            shutil.rmtree(base_download_path)
+            logger.info(f"Folder successfully zipped to {zip_path}")
+            return zip_path
+    else:
+        logger.info(f"Request is for a single file: {metadata['original_filename']}")
+        reassembled_file_path = os.path.join(DATA_DIRECTORY, metadata["original_filename"])
+        all_chunks_found = True
         with open(reassembled_file_path, 'wb') as f:
-            f.write(decrypted_data)
-        logger.info("File decrypted successfully.")
-    logger.info(f"File reassembly complete. Path: {reassembled_file_path}")
-    return reassembled_file_path
+            for chunk_filename in metadata["chunks"]:
+                if chunk_filename in file_cache:
+                    f.write(await file_cache[chunk_filename].attachments[0].read())
+                else:
+                    logger.error(f"FATAL: Chunk '{chunk_filename}' not found for file '{metadata['original_filename']}'")
+                    all_chunks_found = False
+                    break
+        
+        if not all_chunks_found:
+            if os.path.exists(reassembled_file_path): os.remove(reassembled_file_path)
+            return None
 
+        if is_encrypted:
+            try:
+                with open(reassembled_file_path, 'rb') as f: data = f.read()
+                with open(reassembled_file_path, 'wb') as f: f.write(cipher.decrypt(data))
+            except Exception as e:
+                logger.error(f"Decryption failed for '{metadata['original_filename']}': {e}")
+                if os.path.exists(reassembled_file_path): os.remove(reassembled_file_path)
+                return None
+        return reassembled_file_path
+
+async def _build_folder_from_tree(channel, metadata_tree, base_download_path, file_cache, is_encrypted):
+    """Recursively traverses the metadata tree and downloads files."""
+    for name, item in metadata_tree.items():
+        current_path = os.path.join(base_download_path, name)
+        if item["type"] == "directory":
+            os.makedirs(current_path, exist_ok=True)
+            await _build_folder_from_tree(channel, item["children"], current_path, file_cache, is_encrypted)
+        elif item["type"] == "file":
+            logger.info(f"Reassembling file: {current_path}")
+            
+            all_chunks_found = True
+            with open(current_path, 'wb') as reassembled_file:
+                for chunk_filename in item["chunks"]:
+                    if chunk_filename in file_cache:
+                        chunk_message = file_cache[chunk_filename]
+                        chunk_content = await chunk_message.attachments[0].read()
+                        reassembled_file.write(chunk_content)
+                    else:
+                        logger.error(f"FATAL: Chunk '{chunk_filename}' for file '{name}' not found in cache!")
+                        all_chunks_found = False
+                        break
+            
+            if all_chunks_found and is_encrypted:
+                try:
+                    with open(current_path, 'rb') as f: encrypted_data = f.read()
+                    decrypted_data = cipher.decrypt(encrypted_data)
+                    with open(current_path, 'wb') as f: f.write(decrypted_data)
+                except Exception as e:
+                    logger.error(f"Decryption failed for '{name}': {e}")
+            elif not all_chunks_found:
+                 if os.path.exists(current_path):
+                     os.remove(current_path)
+                     
 @app.route('/download', methods=['POST'])
 def download_route():
     server_id = request.form.get('server_id')
     filename = request.form.get('files')
-
-    # We now get 'channels' from the select dropdown 
     channel_name = request.form.get('channels') 
     logger.info(f"Download for '{filename}' from server '{server_id}' in channel '{channel_name}'")
     future = asyncio.run_coroutine_threadsafe(download_from_discord(server_id, channel_name, filename), bot.loop)
@@ -259,8 +365,9 @@ def download_route():
     if file_path and os.path.exists(file_path):
         return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
     else:
-        return "File not found or failed to download.", 404
-
+        flash(f"File '{filename}' not found or failed to download.")
+        return redirect(url_for('server_page', server_id=server_id))
+    
 # --- Main Execution ---
 def run_flask():
     app.run(use_reloader=False, port=5000, host="0.0.0.0")

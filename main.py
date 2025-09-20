@@ -125,8 +125,8 @@ async def upload_to_discord(file_path, original_filename, server_id, channel_nam
             await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path).replace(' ', '_')))
             if chunk_path != file_path:
                 os.remove(chunk_path)
-            logger.info("Waiting 1.5s to avoid rate limits...")
-            await asyncio.sleep(1.5) # 🐢 Proactive delay
+            logger.info("Waiting 0.5s to avoid rate limits...")
+            await asyncio.sleep(0.5) # 🐢 Proactive delay
 
         logger.info(f"Successfully uploaded '{original_filename}'.")
     except Exception as e:
@@ -146,25 +146,33 @@ def upload_file():
     if not all([server_id, channel_name, files]):
         return 'Missing form data', 400
 
+    total_files = len(files)
     for file in files:
         if file.filename == '':
+            total_files -= 1
             continue
         original_filename = file.filename
 
-        # Create a unique filename to prevent overwrites/race conditions 
+        # Create a unique filename to prevent overwrites
         _, ext = os.path.splitext(original_filename)
         unique_filename = f"{uuid.uuid4()}{ext}"
         file_path = os.path.join(DATA_DIRECTORY, unique_filename)
         file.save(file_path)
         logger.info(f"File '{original_filename}' saved temporarily as '{unique_filename}'")
 
-        # ## Pass the unique file path to the upload task ##
-        asyncio.run_coroutine_threadsafe(
+        # Schedule the coroutine to run on the bot's event loop
+        future = asyncio.run_coroutine_threadsafe(
             upload_to_discord(file_path, original_filename, server_id, channel_name, secure_upload), 
             bot.loop
         )
 
-    return {"status": "success", "message": f"{len(files)} files queued for upload."}
+        # ✅ **KEY CHANGE HERE** ✅
+        # Wait for the future to complete. This blocks the loop
+        # until the current file (metadata + all chunks) is fully uploaded.
+        future.result()
+
+    # The message now accurately reflects that the uploads are complete, not just queued.
+    return {"status": "success", "message": f"{total_files} files uploaded successfully."}
 
 async def download_from_discord(server_id, channel_name, filename):
     """ Downloads and reassembles a file from Discord messages. """

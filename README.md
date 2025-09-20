@@ -1,215 +1,188 @@
-# Discord Cloud Storage Documentation
+Of course\! Here is a comprehensive README documentation for your Discord Cloud Storage project based on the provided codebase.
 
-## Project Overview
+-----
 
-Discord Cloud Storage is a Flask-based web application that utilizes Discord as a file storage backend. The system allows users to upload files through a web interface, which are then chunked (if necessary) and stored in a Discord channel as attachments. The application also supports downloading previously uploaded files by reassembling the chunks.
+# Discord Cloud Storage
 
-The project includes two versions:
-1. **Standard Version** `discord_cloud_no_enc.py` - Basic functionality without encryption
-2. **Secure Version** `secure_cloud.py` - Enhanced security with file encryption using Fernet
+[](https://www.python.org/)
+[](https://flask.palletsprojects.com/)
+[](https://discordpy.readthedocs.io/en/latest/)
 
-## System Architecture
+A powerful and easy-to-use application that transforms a private Discord server into a personal, private, and encrypted cloud storage solution, accessible through a clean web interface.
 
-### Components
+## Overview
 
-1. **Web Interface** - Flask-based frontend for file upload/download
-2. **Discord Bot** - Backend for storing and retrieving files from Discord channels
-3. **File Processing Engine** - Handles chunking, metadata management, and file reassembly
-4. **Encryption Module** (Secure version only) - Handles file encryption/decryption
+This project leverages the unlimited file storage of Discord by providing a Flask-based web UI to upload, download, and manage your files. It uses a Discord bot to handle the backend operations within a designated server. Files are split into configurable chunks (defaulting to 10MB), optionally encrypted, and uploaded to a text channel. A metadata file is generated for each upload, allowing the system to reassemble and decrypt the files upon download.
 
-### Data Flow
+-----
 
-#### Upload Process:
-- 1. User uploads a file via the web interface
-- 2. System checks if the file exceeds Discord's file size limit (25MB)
-- 3. If needed, the file is split into chunks
-- 4. File is encrypted before storage **(For Encrypted version)**
-- 5. Metadata is created to track file chunks
-- 6. The Discord bot uploads the metadata and file chunks to the specified channel
+## ✨ Key Features
 
-#### Download Process:
-- 1. User selects a file and channel for download
-- 2. System retrieves the metadata from Discord
-- 3. Each chunk is downloaded and reassembled
-- 4. (Secure version) The file is decrypted
-- 5. The complete file is served to the user
+  * **🌐 Web Interface:** A modern, user-friendly dashboard built with Flask and Tailwind CSS to manage your files. No complex commands needed for core operations.
+  * **📁 File & Folder Uploads:** Drag-and-drop or select entire folders to upload. The original directory structure is preserved.
+  * **🧩 File Chunking:** Large files are automatically split into smaller chunks to comply with Discord's file size limits, enabling the storage of files of virtually any size.
+  * **🔒 Optional Encryption:** End-to-end AES encryption for both files and their metadata using the `cryptography` library. Your data remains private and unreadable to anyone without the key.
+  * **📦 Metadata Management:** Each file or folder upload is accompanied by a `_metadata.json` file, which tracks all the necessary information for reassembly, including chunk names, original filenames, and encryption status.
+  * **🤖 Diagnostic Bot Commands:** Includes slash commands for server administrators to get information about channels, members, and attachments directly within Discord.
 
-## Setup and Configuration
+-----
 
-### Requirements
-- `Python 3.6+`
-- `Flask`
-- `Discord.py`
-- `Cryptography (for secure version)`
-- `Discord bot token`
+## ⚙️ How It Works
 
-### Environment Variables
-- `bot_token`: Discord bot token for authentication
-- `enc_key`: Encryption key (secure version only)
+The application runs a Flask web server and a Discord bot in parallel using threading.
 
-### Directory Structure
-```
-discord-cloud-storage/
-├── discord_cloud_no_enc.py  # Standard version without encryption
-├── secure_cloud.py          # Secure version with encryption
-├── dis_commands.py          # Discord bot commands
-├── Data/                    # Temporary file storage directory
-└── templates/               # Flask HTML templates
-   ├── index.html           # Main page with upload/download forms
-   └── uploaded.html        # Confirmation page after upload
-```
+1.  **Upload Process:**
 
-## Technical Details
-### File Chunking
+      * You select a file or folder through the web UI.
+      * The Flask backend receives the files.
+      * Each file is processed:
+          * If encryption is enabled, the file is encrypted in memory.
+          * The file is split into chunks (e.g., 10MB each). Single-chunk files are also named following the chunking convention for consistency (`_part_0`).
+      * A metadata JSON file is created, mapping the original filename/folder structure to its corresponding chunk names.
+      * The bot uploads the metadata file to the selected Discord channel, followed by each individual file chunk.
+      * Temporary files are cleaned up from the server.
 
-Files larger than 25MB (Discord's file size limit) are split into smaller chunks:
+2.  **Download Process:**
 
-```python
-chunk_size = 25 * 1024 * 1024  # 25 MB
-```
+      * You request a file or folder by its original name in the web UI.
+      * The bot searches the specified channel for the corresponding `_metadata.json` file.
+      * It reads the metadata to identify all the required chunks.
+      * It downloads each chunk in order and reassembles them into a single file.
+      * If the file was encrypted, it is decrypted using your secret key.
+      * The final, reassembled file is served to you for download.
 
-Each chunk is named using the pattern: `{filename}_part_{chunk_number}.{extension}`
+-----
 
-### Metadata
+## 🚀 Setup and Installation
 
-For each uploaded file, a metadata JSON file is created to track:
-- Original filename
-- File size (for large files)
-- Number of chunks
-- List of chunk filenames
-- (Secure version) Encryption key
+### Prerequisites
 
-```python
-# normal
-metadata = {
-"original_filename": filename,
-"file_size": filesize,
-"no of chunks": chunk_num,
-"chunks": chunks
-}
+  * **Python 3.8+**
+  * A **Discord Bot Token**. You can create a bot and get a token from the [Discord Developer Portal](https://www.google.com/search?q=https://discord.com/developers/applications).
+      * Your bot needs the **Privileged Gateway Intents** enabled:
+          * `SERVER MEMBERS INTENT`
+          * `MESSAGE CONTENT INTENT`
+  * Invite the bot to your Discord server with `Administrator` permissions.
 
-# encrypted
-metadata = {
-"original_filename": filename,
-"chunks": [os.path.basename(chunk) for chunk in chunks],
-"encryption key": encryption_key.decode()
-}
-```
-### Writing metadata to file
-How to write the metadata file in json format, deletes local copy after upload as saved in discord server. When downloading, it finds the **metadata file** associated with a `specified file` that you searched. 
-```python
-metadata_filename = os.path.join(DATA_DIRECTORY, f"{file_base}_metadata.json")
-with open(metadata_filename, 'w') as metadata_file:
-json.dump(metadata, metadata_file)
+### 1\. Clone the Repository
+
+```bash
+git clone <your-repo-url>
+cd <repository-folder>
 ```
 
-### Security Features (Secure Version)
+### 2\. Create a Virtual Environment
 
-The secure version implements Fernet symmetric encryption:
-- Files are encrypted before uploading to Discord
-- Metadata is also encrypted
-- The encryption key is stored in the metadata
-- Files are automatically decrypted upon download
+It's highly recommended to use a virtual environment to manage dependencies.
 
-```python
-# Encryption setup
-encryption_key = os.getenv("enc_key").encode()
-cipher = Fernet(encryption_key)
+```bash
+# For Windows
+python -m venv venv
+.\venv\Scripts\activate
+
+# For macOS/Linux
+python3 -m venv venv
+source venv/bin/activate
 ```
 
-### Logging
+### 3\. Install Dependencies
 
-The system uses colorlog for enhanced console output with different colors for:
-- DEBUG (bold cyan)
-- INFO (bold green)
-- WARNING (bold yellow)
-- ERROR (red)
-- CRITICAL (bold red)
+Create a `requirements.txt` file with the following content:
 
-## API Reference
-
-### Web Endpoints
-
-#### GET /
-- Returns the main page with upload/download interface
-
-#### POST /upload
-- Parameters:
-- `file`: The file to upload
-- `channel`: The Discord channel name for storage
-- Returns: Confirmation page or error message
-
-#### POST /download
-- Parameters:
-- `channels`: The Discord channel name where the file is stored
-- `files`: The filename to download
-- Returns: The downloaded file or error message
-
-### Discord Bot Functions
-
-#### on_ready()
-- Triggered when the bot connects to Discord
-- Logs the successful connection
-
-#### upload_to_discord(file_path, filename, channel_name)
-- Uploads a file to the specified Discord channel
-- Handles chunking for large files
-- Creates and uploads metadata
-
-#### download_files(channel_name, filename)
-- Downloads file chunks from Discord
-- Reassembles the original file
-- (Secure version) Decrypts the file
-
-#### The project also includes several discord bot commands (defined in `dis_commands.py`)
-
-```python
-@bot.command(name='channel_info')
-async def channel_info(ctx, channel_id: int):
-# Get channel information
-
-@bot.command(name='get_members')
-async def get_members(ctx):
-# List guild members
-
-@bot.command(name='check_attachments')
-async def check_attachments(ctx):
-# List attachments in a channel
-
-@bot.command(name='ping')
-async def ping(ctx):
-# Simple ping command for testing
+```txt
+flask
+discord.py
+python-dotenv
+cryptography
+colorlog
 ```
 
-## Error Handling
+Then, install them using pip:
 
-The system includes error handling for common scenarios:
-- Channel not found
-- File not found
-- Metadata not found
-- Chunking/reassembly failures
-- **(Secure version)** Encryption/decryption failures
+```bash
+pip install -r requirements.txt
+```
 
-## Limitations and Considerations
+### 4\. Configure Environment Variables
 
-1. **Discord Rate Limits**: Be aware of Discord's API rate limits when uploading/downloading large files or numerous chunks.
+Create a file named `.env` in the root directory of the project. This file will store your sensitive credentials.
 
-2. **File Size**: While the system can handle files larger than 25MB through chunking, there are practical limits to file size due to Discord's message history limitations.
+```env
+bot_token="YOUR_DISCORD_BOT_TOKEN_HERE"
+enc_key="YOUR_SECRET_ENCRYPTION_KEY_HERE"
+```
 
-3. **Security** (Standard version): The non-encrypted version does not provide security for sensitive files. Use the secure version for confidential data.
+  * `bot_token`: Your bot token from the Discord Developer Portal.
 
-4. **Key Management** (Secure version): The encryption key is stored in the metadata file. While this metadata is itself encrypted, a more robust key management system might be desirable for highly sensitive applications.
+  * `enc_key`: A 32-byte secret key for encryption. You can generate a new one by running the following Python script:
 
-5. **Channel History Limit**: Discord has limits on message history, which may affect retrieval of older files.
+    ```python
+    from cryptography.fernet import Fernet
+    key = Fernet.generate_key()
+    print(key.decode())
+    ```
 
-## Future Enhancements
+    **Important:** Keep this key safe\! If you lose it, you will not be able to decrypt your files.
 
-Potential improvements for the system:
-- User authentication
-- File sharing capabilities 
-- Improved error recovery
-- Progress indicators for large file transfers
-- Enhanced key management
-- Compression before chunking
-- multiple files of upload & downloading process
-- improve encryption/decryption capabilities
+### 5\. Run the Application
+
+Once everything is configured, start the application:
+
+```bash
+python main.py
+```
+
+The Flask server will be accessible at `http://127.0.0.1:5000` by default.
+
+-----
+
+## 📖 Usage Guide
+
+1.  **Access the Web UI:** Open your browser and navigate to `http://127.0.0.1:5000`.
+2.  **Select Your Server:** Enter the **exact name** of the Discord server your bot is in and click **Continue**.
+3.  **Uploading Files:**
+      * Use the **Select Files** or **Select Folder** buttons to choose what you want to upload.
+      * Selected files will appear in the **Staging Area**.
+      * Choose the **Target Channel** from the dropdown menu.
+      * Check the **Encrypt files?** box if you want your files to be encrypted.
+      * Click **Upload**.
+4.  **Downloading Files:**
+      * In the "Download File" card, enter the **exact original name** of the file or folder you want to download (e.g., `MyDocument.pdf` or `MyProjectFolder`).
+      * If you are downloading a specific file from within an uploaded folder, use its relative path (e.g., `MyProjectFolder/src/main.js`).
+      * Select the **Source Channel** where the file was originally uploaded.
+      * Click **Download**. The application will find the parts, reassemble them, and prompt you to save the file.
+
+-----
+
+## 🤖 Discord Bot Commands
+
+These commands can be used directly in your Discord server for diagnostics and information gathering.
+
+  * `!ping`
+      * Checks the bot's latency. Responds with "Pong\!".
+  * `!channel_info [channel_id]`
+      * Provides detailed information about a specific text channel.
+  * `!get_members`
+      * Lists all members in the current server.
+  * `!check_attachments`
+      * Scans the recent history of the current channel and lists information about any attachments found.
+
+-----
+
+## 📂 Project Structure
+
+```
+.
+├── Data/                 # Temporary directory for file processing (auto-generated)
+├── static/               # (Optional) For CSS, JS, or images
+├── templates/
+│   ├── index.html        # Server selection page
+│   ├── main.html         # Main dashboard for upload/download
+│   └── uploaded.html     # Success confirmation page
+├── .env                  # Environment variables (bot token, encryption key)
+├── dis_commands.py       # Defines the Discord bot's '!' commands
+├── main.py               # Core Flask and Discord bot logic
+├── requirements.txt      # Python dependencies
+└── utils/
+    └── util.py           # Helper functions and logger configuration
+```

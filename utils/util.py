@@ -1,5 +1,5 @@
 from dis_commands import bot
-import logging, colorlog, os, discord, json, uuid, asyncio, shutil
+import logging, colorlog, os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 load_dotenv()

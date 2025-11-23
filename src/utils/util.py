@@ -1,4 +1,4 @@
-from app.dis_commands import bot
+from ..dis_commands import bot
 import logging, colorlog, os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -42,10 +42,17 @@ async def fetch_channels_from_guild(guild_id):
         return None
     
 # --- File Handling and Discord Upload/Download ---
-ENCRYPTION_KEY = os.getenv("enc_key").encode()
+enc_key_str = os.getenv("enc_key")
+if not enc_key_str:
+    raise ValueError("Environment variable 'enc_key' is not set. Please check your .env file.")
+ENCRYPTION_KEY = enc_key_str.encode()
 cipher = Fernet(ENCRYPTION_KEY)
 CHUNK_SIZE = 10 * 1024 * 1024 # Default to 10MB if not set
-DATA_DIRECTORY = 'Data'
+# Calculate project root relative to this file (src/utils/util.py)
+# We want to reach the repo root where 'Data' is located.
+# src/utils/util.py -> src/utils -> src -> repo_root
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DATA_DIRECTORY = os.path.join(PROJECT_ROOT, 'Data')
 if not os.path.exists(DATA_DIRECTORY): os.makedirs(DATA_DIRECTORY)
 
 def process_and_chunk_file(source_path, secure):

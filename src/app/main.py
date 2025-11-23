@@ -1,15 +1,23 @@
-import os, sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask, request, render_template, send_file, redirect, url_for, flash
-import discord, threading, json, asyncio, uuid, shutil
+import discord, threading, json, asyncio, uuid, shutil, os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from dis_commands import bot
-from utils.util import logger, cipher, DATA_DIRECTORY, find_guild_by_name, process_and_chunk_file, fetch_channels_from_guild
+from ..dis_commands import bot
+from ..utils.util import (
+    logger,
+    cipher,
+    DATA_DIRECTORY,
+    find_guild_by_name,
+    fetch_channels_from_guild,
+)
 
 load_dotenv()
 
-app = Flask(__name__)
+# Calculate the path to the 'template' folder in the project root
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+template_dir = os.path.join(base_dir, 'templates')
+
+app = Flask(__name__, template_folder=template_dir)
 app.secret_key = os.urandom(24) 
 
 TOKEN = os.getenv("bot_token")

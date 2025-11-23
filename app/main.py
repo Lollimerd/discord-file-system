@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, send_file, redirect, url_for,
 import discord, os, threading, json, asyncio, uuid, shutil
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
+from dis_commands import get_members, check_attachments, channel_info, bot
 from utils.util import (
     find_guild_by_name, 
     fetch_channels_from_guild, 
@@ -9,7 +10,6 @@ from utils.util import (
     DATA_DIRECTORY,
     cipher, logger
     )
-from dis_commands import *
 
 load_dotenv()
 

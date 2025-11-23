@@ -9,6 +9,7 @@ from ..utils.util import (
     DATA_DIRECTORY,
     find_guild_by_name,
     fetch_channels_from_guild,
+    process_and_chunk_file,
 )
 
 load_dotenv()

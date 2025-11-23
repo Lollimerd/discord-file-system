@@ -1,15 +1,11 @@
+import os, sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask, request, render_template, send_file, redirect, url_for, flash
-import discord, os, threading, json, asyncio, uuid, shutil
+import discord, threading, json, asyncio, uuid, shutil
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from dis_commands import get_members, check_attachments, channel_info, bot
-from utils.util import (
-    find_guild_by_name, 
-    fetch_channels_from_guild, 
-    _process_and_chunk_file,
-    DATA_DIRECTORY,
-    cipher, logger
-    )
+from dis_commands import bot
+from utils.util import logger, cipher, DATA_DIRECTORY, find_guild_by_name, process_and_chunk_file, fetch_channels_from_guild
 
 load_dotenv()
 
@@ -74,7 +70,7 @@ async def upload_single_file(file_path, original_filename, server_id, channel_na
 
     try:
         # Use the unified helper for all processing and naming
-        chunk_paths, chunk_basenames = _process_and_chunk_file(file_path, secure)
+        chunk_paths, chunk_basenames = process_and_chunk_file(file_path, secure)
 
         metadata = {
             "original_filename": original_filename,
@@ -157,7 +153,7 @@ def upload_handler():
             file.save(temp_file_path)
 
             # Use the unified helper for processing
-            processed_chunks, processed_basenames = _process_and_chunk_file(temp_file_path, secure_upload)
+            processed_chunks, processed_basenames = process_and_chunk_file(temp_file_path, secure_upload)
             all_chunk_paths.extend(processed_chunks)
 
             # Build the folder tree structure

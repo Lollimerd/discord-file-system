@@ -1,4 +1,4 @@
-from dis_commands import bot
+from app.dis_commands import bot
 import logging, colorlog, os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -48,7 +48,7 @@ CHUNK_SIZE = 10 * 1024 * 1024 # Default to 10MB if not set
 DATA_DIRECTORY = 'Data'
 if not os.path.exists(DATA_DIRECTORY): os.makedirs(DATA_DIRECTORY)
 
-def _process_and_chunk_file(source_path, secure):
+def process_and_chunk_file(source_path, secure):
     """
     Handles in-place encryption and consistent chunking for any given file.
     All chunks, including for single-part files, will contain '_part_'.

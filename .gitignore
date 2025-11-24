@@ -1,4 +1,4 @@
-.env
+*.env
 key.py
 archive/
 __pycache__/

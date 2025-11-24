@@ -1,22 +1,27 @@
 from flask import Flask, request, render_template, send_file, redirect, url_for, flash
-import discord, os, threading, json, asyncio, uuid, shutil
+import discord, threading, json, asyncio, uuid, shutil, os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from utils.util import find_guild_by_name, fetch_channels_from_guild, logger
-from dis_commands import *
+from ..dis_commands import bot
+from ..utils.util import (
+    logger,
+    cipher,
+    DATA_DIRECTORY,
+    find_guild_by_name,
+    fetch_channels_from_guild,
+    process_and_chunk_file,
+)
 
 load_dotenv()
 
-app = Flask(__name__)
+# Calculate the path to the 'template' folder in the project root
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+template_dir = os.path.join(base_dir, 'templates')
+
+app = Flask(__name__, template_folder=template_dir)
 app.secret_key = os.urandom(24) 
 
 TOKEN = os.getenv("bot_token")
-ENCRYPTION_KEY = os.getenv("enc_key").encode()
-cipher = Fernet(ENCRYPTION_KEY)
-
-DATA_DIRECTORY = 'Data'
-if not os.path.exists(DATA_DIRECTORY): os.makedirs(DATA_DIRECTORY)
-CHUNK_SIZE = 10 * 1024 * 1024
 
 @bot.event
 async def on_ready():
@@ -63,40 +68,8 @@ def server_page(server_id):
         flash(f"Could not retrieve data for Server ID {server_id}.")
         return redirect(url_for('index'))
 
-def _process_and_chunk_file(source_path, secure):
-    """
-    Handles in-place encryption and consistent chunking for any given file.
-    All chunks, including for single-part files, will contain '_part_'.
-    Returns a tuple of (list of full chunk paths, list of chunk basenames).
-    """
-    if secure:
-        with open(source_path, 'rb') as f: data = f.read()
-        with open(source_path, 'wb') as f: f.write(cipher.encrypt(data))
 
-    chunk_paths = []
-    chunk_basenames = []
-    base, ext = os.path.splitext(os.path.basename(source_path))
-
-    if os.path.getsize(source_path) > CHUNK_SIZE:
-        with open(source_path, 'rb') as f:
-            for i, chunk_data in enumerate(iter(lambda: f.read(CHUNK_SIZE), b'')):
-                chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_{i}{ext}")
-                with open(chunk_path, 'wb') as cf: cf.write(chunk_data)
-                chunk_paths.append(chunk_path)
-                chunk_basenames.append(os.path.basename(chunk_path))
-    else:
-        # For single-part files, rename them to follow the chunking convention
-        chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_0{ext}")
-        os.rename(source_path, chunk_path)
-        chunk_paths.append(chunk_path)
-        chunk_basenames.append(os.path.basename(chunk_path))
-
-    # Clean up the original source file if it was chunked into multiple parts
-    if os.path.exists(source_path):
-        os.remove(source_path)
-
-    return chunk_paths, chunk_basenames
-
+# --- Upload Logic ---
 async def upload_single_file(file_path, original_filename, server_id, channel_name, secure):
     """Handles the upload process for a single file using the unified chunker."""
     guild = bot.get_guild(int(server_id))
@@ -106,7 +79,7 @@ async def upload_single_file(file_path, original_filename, server_id, channel_na
 
     try:
         # Use the unified helper for all processing and naming
-        chunk_paths, chunk_basenames = _process_and_chunk_file(file_path, secure)
+        chunk_paths, chunk_basenames = process_and_chunk_file(file_path, secure)
 
         metadata = {
             "original_filename": original_filename,
@@ -189,7 +162,7 @@ def upload_handler():
             file.save(temp_file_path)
 
             # Use the unified helper for processing
-            processed_chunks, processed_basenames = _process_and_chunk_file(temp_file_path, secure_upload)
+            processed_chunks, processed_basenames = process_and_chunk_file(temp_file_path, secure_upload)
             all_chunk_paths.extend(processed_chunks)
 
             # Build the folder tree structure
@@ -223,6 +196,8 @@ def upload_handler():
             future.result()
         return {"status": "success", "message": f"{len(files)} files uploaded."}
 
+
+# --- Download Logic ---
 async def download_from_discord(server_id, channel_name, requested_path):
     """Downloads a file or folder, with synchronized and robust error handling."""
     guild = bot.get_guild(int(server_id))
@@ -352,7 +327,7 @@ async def _build_folder_from_tree(channel, metadata_tree, base_download_path, fi
             elif not all_chunks_found:
                  if os.path.exists(current_path):
                      os.remove(current_path)
-                     
+
 @app.route('/download', methods=['POST'])
 def download_route():
     server_id = request.form.get('server_id')

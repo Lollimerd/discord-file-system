@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - {{ guild_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <header id="header" class="text-center mb-8 opacity-0">
+            <p class="text-slate-400">Now managing server:</p>
+            <h1 class="text-4xl font-bold text-violet-400">{{ guild_name }}</h1>
+            <a href="/" class="text-sm text-slate-500 hover:text-violet-400 transition-colors">&larr; Change Server</a>
+        </header>
+
+        <div class="grid md:grid-cols-2 gap-8">
+            <div id="uploader-card" class="bg-slate-800 p-6 rounded-lg shadow-2xl opacity-0">
+                <h2 class="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">File Uploader</h2>
+                
+                <input type="file" id="file-input" multiple class="hidden">
+                <input type="file" id="folder-input" webkitdirectory directory class="hidden">
+
+                <div class="flex space-x-4 mb-4">
+                    <button onclick="document.getElementById('file-input').click()" class="w-full bg-slate-700 hover:bg-slate-600 p-3 rounded-lg text-center transition-colors">Select Files</button>
+                    <button onclick="document.getElementById('folder-input').click()" class="w-full bg-slate-700 hover:bg-slate-600 p-3 rounded-lg text-center transition-colors">Select Folder</button>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block mb-2 text-sm font-medium text-slate-300">Staging Area (<span id="file-count">0</span> files)</label>
+                    <div id="staging-area" class="h-40 bg-slate-900 rounded-lg p-2 overflow-y-auto text-xs text-slate-400 border border-slate-700">
+                        No files selected.
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="upload-channel" class="block mb-2 text-sm font-medium text-slate-300">Target Channel</label>
+                    <select id="upload-channel" name="channel" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5">
+                        {% for channel in channels %}
+                            <option value="{{ channel.name }}">#{{ channel.name }}</option>
+                        {% else %}
+                            <option disabled>No channels found</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="flex items-center mb-4">
+                    <input id="encrypt-checkbox" type="checkbox" class="w-4 h-4 text-violet-600 bg-slate-700 border-slate-600 rounded focus:ring-violet-600">
+                    <label for="encrypt-checkbox" class="ml-2 text-sm font-medium text-slate-300">Encrypt files?</label>
+                </div>
+                
+                <button id="upload-button" class="w-full text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed" disabled>
+                    Upload
+                </button>
+                <div id="upload-status" class="text-center mt-4 text-sm text-green-400"></div>
+            </div>
+
+            <div id="download-card" class="bg-slate-800 p-6 rounded-lg shadow-2xl opacity-0">
+                <h2 class="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">Download File</h2>
+                <form method="POST" action="/download">
+                    <input type="hidden" name="server_id" value="{{ server_id }}">
+                    <div class="mb-4">
+                        <label for="files" class="block mb-2 text-sm font-medium text-slate-300">File Path (e.g., folder/file.ext)</label>
+                        <input type="text" name="files" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="download-channel" class="block mb-2 text-sm font-medium text-slate-300">Source Channel</label>
+                        <select id="download-channel" name="channels" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5">
+                            {% for channel in channels %}
+                                <option value="{{ channel.name }}">#{{ channel.name }}</option>
+                            {% else %}
+                                <option disabled>No channels found</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">Download</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script>
+        // --- Animation Logic ---
+        anime.timeline({ easing: 'easeOutQuad' })
+            .add({ targets: '#header', opacity: [0, 1], translateY: [-20, 0], duration: 600 })
+            .add({ targets: ['#uploader-card', '#download-card'], opacity: [0, 1], translateY: [20, 0], duration: 800, delay: anime.stagger(100) }, '-=300');
+
+        // --- Uploader JavaScript Logic ---
+        const fileInput = document.getElementById('file-input');
+        const folderInput = document.getElementById('folder-input');
+        const uploadButton = document.getElementById('upload-button');
+        const stagingArea = document.getElementById('staging-area');
+        const fileCountSpan = document.getElementById('file-count');
+        const uploadStatus = document.getElementById('upload-status');
+        
+        let stagedFiles = [];
+
+        const updateStagingArea = () => {
+            if (stagedFiles.length === 0) {
+                stagingArea.innerHTML = 'No files selected.';
+                uploadButton.disabled = true;
+            } else {
+                stagingArea.innerHTML = '';
+                stagedFiles.forEach(file => {
+                    const fileElement = document.createElement('div');
+                    fileElement.textContent = file.webkitRelativePath || file.name;
+                    stagingArea.appendChild(fileElement);
+                });
+                uploadButton.disabled = false;
+            }
+            fileCountSpan.textContent = stagedFiles.length;
+        };
+        
+        const addFilesToStage = (files) => {
+            // Prevent duplicates
+            const newFiles = Array.from(files).filter(file => 
+                !stagedFiles.some(stagedFile => (stagedFile.webkitRelativePath || stagedFile.name) === (file.webkitRelativePath || file.name))
+            );
+            stagedFiles.push(...newFiles);
+            updateStagingArea();
+        };
+
+        fileInput.addEventListener('change', (e) => addFilesToStage(e.target.files));
+        folderInput.addEventListener('change', (e) => addFilesToStage(e.target.files));
+
+        uploadButton.addEventListener('click', async () => {
+            if (stagedFiles.length === 0) return;
+
+            uploadButton.disabled = true;
+            uploadButton.textContent = 'Uploading...';
+            uploadStatus.textContent = '';
+
+            const formData = new FormData();
+            formData.append('server_id', '{{ server_id }}');
+            formData.append('channel', document.getElementById('upload-channel').value);
+            formData.append('encrypt', document.getElementById('encrypt-checkbox').checked);
+            
+            stagedFiles.forEach(file => {
+                // Use webkitRelativePath if available to preserve folder structure
+                const fileName = file.webkitRelativePath || file.name;
+                formData.append('files[]', file, fileName);
+            });
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    uploadStatus.textContent = result.message + ' ✅';
+                    stagedFiles = []; // Clear the stage on success
+                    updateStagingArea();
+                } else {
+                    throw new Error(result.message || 'Upload failed');
+                }
+            } catch (error) {
+                uploadStatus.style.color = '#ef4444'; // red-500
+                uploadStatus.textContent = 'Error: ' + error.message;
+            } finally {
+                uploadButton.textContent = 'Upload';
+                // Re-enable button only if there are files
+                uploadButton.disabled = stagedFiles.length === 0;
+            }
+        });
+    </script>
+</body>
+</html>

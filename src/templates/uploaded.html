@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Action Complete</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white flex justify-center items-center h-screen">
+    <div id="confirm-card" class="bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-md text-center opacity-0">
+        <h1 class="text-3xl font-bold text-violet-400 mb-4">✅ Success!</h1>
+        <p class="text-slate-300 mb-6">Your file process has been initiated successfully.</p>
+        <a href="{{ url_for('server_page', server_id=server_id) }}" class="inline-block text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5 transition-colors">
+            Return to Dashboard
+        </a>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script>
+        anime({
+            targets: '#confirm-card',
+            opacity: [0, 1],
+            scale: [0.9, 1],
+            duration: 800,
+            easing: 'easeOutQuad'
+        });
+    </script>
+</body>
+</html>

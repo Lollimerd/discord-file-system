@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome - Select Server</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white flex justify-center items-center h-screen">
+    <div id="login-card" class="bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-md opacity-0">
+        <h1 class="text-3xl font-bold text-center mb-2 text-violet-400">Discord Cloud Storage</h1>
+        <p class="text-center text-slate-400 mb-6">Please enter your Server Name to continue.</p>
+        
+        <form action="/select_server" method="POST">
+            <div class="mb-4">
+                <label for="server_name" class="block mb-2 text-sm font-medium text-slate-300">Server Name</label>
+                <input type="text" id="server_name" name="server_name" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5" required>
+            </div>
+            <button type="submit" class="w-full text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">Continue</button>
+        </form>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="mt-4 bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
+                    {{ messages[0] }}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script>
+        anime({
+            targets: '#login-card',
+            opacity: [0, 1],
+            translateY: [20, 0],
+            duration: 800,
+            easing: 'easeOutQuad'
+        });
+    </script>
+</body>
+</html>

@@ -89,12 +89,15 @@ async def upload_single_file(file_path, original_filename, server_id, channel_na
     if not channel: return logger.error(f'Upload failed: Channel "{channel_name}" not found.')
 
     try:
+        # Get original file size BEFORE processing (processing modifies/moves the file)
+        original_size = os.path.getsize(file_path)
+        
         # Use the unified helper for all processing and naming
         chunk_paths, chunk_basenames = process_and_chunk_file(file_path, secure)
 
         metadata = {
             "original_filename": original_filename,
-            "original_size": os.path.getsize(file_path),
+            "original_size": original_size,
             "chunks": chunk_basenames,
             "encrypted": secure
         }
@@ -192,9 +195,18 @@ def upload_handler():
             "tree": folder_tree.get(folder_name, {}).get("children", folder_tree)
         }
         
-        future = asyncio.run_coroutine_threadsafe(upload_folder(final_metadata, all_chunk_paths, server_id, channel_name), bot.loop)
-        future.result()
-        return {"status": "success", "message": f"Folder '{folder_name}' uploaded."}
+        try:
+            future = asyncio.run_coroutine_threadsafe(upload_folder(final_metadata, all_chunk_paths, server_id, channel_name), bot.loop)
+            future.result()
+        except Exception as e:
+            logger.error(f"Error uploading folder '{folder_name}': {e}")
+            # Clean up any remaining chunk files
+            for chunk_path in all_chunk_paths:
+                if os.path.exists(chunk_path):
+                    os.remove(chunk_path)
+            return jsonify({"status": "error", "message": f"Folder upload failed: {str(e)}"}), 500
+        
+        return jsonify({"status": "success", "message": f"Folder '{folder_name}' uploaded."})
 
     else:
         logger.info("Individual file upload detected.")
@@ -204,12 +216,22 @@ def upload_handler():
             temp_file_path = os.path.join(DATA_DIRECTORY, f"{uuid.uuid4()}{os.path.splitext(file.filename)[1]}")
             file.save(temp_file_path)
 
-            future = asyncio.run_coroutine_threadsafe(
-                upload_single_file(temp_file_path, file.filename, server_id, channel_name, secure_upload),
-                bot.loop
-            )
-            future.result()
-        return {"status": "success", "message": f"{len(files)} files uploaded."}
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    upload_single_file(temp_file_path, file.filename, server_id, channel_name, secure_upload),
+                    bot.loop
+                )
+                future.result()
+            except Exception as e:
+                logger.error(f"Error uploading file '{file.filename}': {e}")
+                # Ensure cleanup if upload fails
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+            finally:
+                # Final cleanup check for temp file
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+        return jsonify({"status": "success", "message": f"{len(files)} files uploaded."})
 
 
 

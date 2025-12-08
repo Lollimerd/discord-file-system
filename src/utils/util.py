@@ -72,13 +72,14 @@ def process_and_chunk_file(source_path, secure):
     if os.path.getsize(source_path) > CHUNK_SIZE:
         with open(source_path, 'rb') as f:
             for i, chunk_data in enumerate(iter(lambda: f.read(CHUNK_SIZE), b'')):
-                chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_{i}{ext}")
+                # Remove original file extension from chunk filenames; preserve base name
+                chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_{i}")
                 with open(chunk_path, 'wb') as cf: cf.write(chunk_data)
                 chunk_paths.append(chunk_path)
                 chunk_basenames.append(os.path.basename(chunk_path))
     else:
-        # For single-part files, rename them to follow the chunking convention
-        chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_0{ext}")
+        # For single-part files, rename them to follow the chunking convention (no extension)
+        chunk_path = os.path.join(DATA_DIRECTORY, f"{base}_part_0")
         os.rename(source_path, chunk_path)
         chunk_paths.append(chunk_path)
         chunk_basenames.append(os.path.basename(chunk_path))

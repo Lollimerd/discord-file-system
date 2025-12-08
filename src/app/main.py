@@ -106,7 +106,9 @@ async def upload_single_file(file_path, original_filename, server_id, channel_na
         if secure: metadata_content = cipher.encrypt(metadata_content)
         with open(metadata_filename, 'wb') as f: f.write(metadata_content)
 
-        await channel.send(file=discord.File(metadata_filename, filename=f"{original_filename}_metadata.json"))
+        # Upload metadata using the filename base (strip original extension)
+        metadata_attachment_name = f"{os.path.splitext(original_filename)[0]}_metadata.json"
+        await channel.send(file=discord.File(metadata_filename, filename=metadata_attachment_name))
         os.remove(metadata_filename)
 
         for chunk_path in chunk_paths:
@@ -301,7 +303,9 @@ async def download_from_discord(server_id, channel_name, requested_path):
 
     # Get metadata
     root_object_name = requested_path.split('/')[0]
-    metadata_filename_to_find = f"{root_object_name}_metadata.json"
+    # Use base name (strip extension) when searching for metadata attachments
+    root_base = os.path.splitext(root_object_name)[0]
+    metadata_filename_to_find = f"{root_base}_metadata.json"
     
     # Build file cache
     logger.info("Building file cache from channel history...")
@@ -440,7 +444,131 @@ def download_route():
     else:
         flash(f"File '{filename}' not found or failed to download.")
         return redirect(url_for('server_page', server_id=server_id))
+
+# --- Delete Logic ---
+async def delete_from_discord(server_id, channel_name, file_name):
+    """Deletes a file or folder and all associated chunks from Discord channel."""
+    guild = bot.get_guild(int(server_id))
+    if not guild: 
+        logger.error(f"Delete failed: Guild {server_id} not found.")
+        return False
+    channel = discord.utils.get(guild.text_channels, name=channel_name)
+    if not channel: 
+        logger.error(f"Delete failed: Channel '{channel_name}' not found.")
+        return False
+
+    try:
+        # Extract root base name (handle both single files and folders with paths)
+        root_name = file_name.split('/')[0]
+        root_base = os.path.splitext(root_name)[0]
+        metadata_filename = f"{root_base}_metadata.json"
+        
+        logger.info(f"Searching for metadata: {metadata_filename}")
+        
+        # First pass: Find metadata file and extract all chunk filenames
+        filenames_to_delete = set()
+        metadata_message = None
+        
+        async for message in channel.history(limit=2000):
+            for attachment in message.attachments:
+                if attachment.filename == metadata_filename:
+                    logger.info(f"Found metadata message: {message.id}")
+                    metadata_message = message
+                    
+                    # Parse metadata to get all related chunk names
+                    try:
+                        content = await attachment.read()
+                        try:
+                            metadata = json.loads(content)
+                        except:
+                            metadata = json.loads(cipher.decrypt(content))
+                        
+                        # Extract all chunk filenames
+                        if metadata.get("upload_type") == "folder":
+                            # Recursively extract chunks from tree
+                            def extract_chunks_from_tree(tree):
+                                chunks = []
+                                for name, item in tree.items():
+                                    if item.get("type") == "file":
+                                        chunks.extend(item.get("chunks", []))
+                                    elif item.get("type") == "directory":
+                                        chunks.extend(extract_chunks_from_tree(item.get("children", {})))
+                                return chunks
+                            
+                            chunks = extract_chunks_from_tree(metadata.get("tree", {}))
+                            filenames_to_delete.update(chunks)
+                            logger.info(f"Extracted {len(chunks)} chunks from folder structure")
+                        else:
+                            # Single file
+                            filenames_to_delete.update(metadata.get("chunks", []))
+                            logger.info(f"Extracted {len(metadata.get('chunks', []))} chunks from single file")
+                    except Exception as e:
+                        logger.error(f"Error parsing metadata: {e}")
+            
+            # Early exit once metadata is found
+            if metadata_message:
+                break
+        
+        # If metadata not found
+        if not metadata_message:
+            logger.warning(f"Metadata file '{metadata_filename}' not found in channel.")
+            return False
+        
+        # Second pass: Collect all messages to delete (metadata + chunks)
+        messages_to_delete = [metadata_message]
+        
+        async for message in channel.history(limit=2000):
+            for attachment in message.attachments:
+                # Add chunk files to delete list
+                if attachment.filename in filenames_to_delete:
+                    messages_to_delete.append(message)
+                    logger.info(f"Found chunk to delete: {attachment.filename}")
+        
+        logger.info(f"Total messages to delete: {len(messages_to_delete)}")
+        
+        # Delete all related messages
+        delete_count = 0
+        for message in messages_to_delete:
+            try:
+                await message.delete()
+                delete_count += 1
+                logger.info(f"Deleted message {message.id}")
+                await asyncio.sleep(0.5)  # Rate limiting between deletes
+            except discord.errors.NotFound:
+                logger.warning(f"Message {message.id} already deleted or not found")
+            except Exception as e:
+                logger.error(f"Error deleting message {message.id}: {e}")
+        
+        logger.info(f"Successfully deleted '{file_name}' and {delete_count} associated messages.")
+        return True
+    except Exception as e:
+        logger.error(f"An error occurred during delete for '{file_name}': {e}")
+        return False
+
+@app.route('/delete', methods=['POST'])
+def delete_route():
+    data = request.get_json()
+    server_id = data.get('server_id')
+    filename = data.get('filename')
+    channel_name = data.get('channel_name')
     
+    if not all([server_id, filename, channel_name]):
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+    
+    logger.info(f"Delete request for '{filename}' from server '{server_id}' in channel '{channel_name}'")
+    
+    try:
+        future = asyncio.run_coroutine_threadsafe(delete_from_discord(server_id, channel_name, filename), bot.loop)
+        success = future.result()
+        
+        if success:
+            return jsonify({"status": "success", "message": f"Successfully deleted '{filename}'."})
+        else:
+            return jsonify({"status": "error", "message": f"Failed to delete '{filename}'."}), 400
+    except Exception as e:
+        logger.error(f"Error in delete route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # --- Main Execution ---
 def run_flask():
     app.run(use_reloader=False, port=5000, host="0.0.0.0")

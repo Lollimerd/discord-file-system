@@ -10,6 +10,11 @@ intents.members = True
 # Discord bot setup
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# test command to check if the bot is responsive
+@bot.command(name='ping')
+async def ping(ctx):
+    await ctx.send('Pong!')
+
 @bot.command(name='channel_info')
 async def channel_info(ctx, channel_id: int):
     # Get the channel data from the channel ID
@@ -63,6 +68,96 @@ async def check_attachments(ctx):
         )
     await ctx.send(embed=embed)
 
-@bot.command(name='ping')
-async def ping(ctx):
-    await ctx.send('Pong!')
+@bot.command(name='delete_file')
+async def delete_file(ctx, *, filename: str):
+    """Delete a file or folder from the current channel by name.
+    Usage: !delete_file <filename or folder_name>
+    """
+    channel = ctx.channel
+    
+    if not filename:
+        await ctx.send("Please provide a filename to delete.")
+        return
+    
+    root_name = filename.split('/')[0]
+    root_base = __import__('os').path.splitext(root_name)[0]
+    metadata_filename = f"{root_base}_metadata.json"
+    
+    messages_to_delete = []
+    filenames_to_delete = set()
+    metadata_message = None
+    
+    try:
+        # First pass: Find metadata and extract all chunk filenames
+        async for message in channel.history(limit=2000):
+            for attachment in message.attachments:
+                if attachment.filename == metadata_filename:
+                    metadata_message = message
+                    try:
+                        content = await attachment.read()
+                        try:
+                            import json
+                            metadata = json.loads(content)
+                        except:
+                            from utils.util import cipher
+                            metadata = json.loads(cipher.decrypt(content))
+                        
+                        # Extract chunks based on type
+                        if metadata.get("upload_type") == "folder":
+                            def extract_chunks(tree):
+                                chunks = []
+                                for name, item in tree.items():
+                                    if item.get("type") == "file":
+                                        chunks.extend(item.get("chunks", []))
+                                    elif item.get("type") == "directory":
+                                        chunks.extend(extract_chunks(item.get("children", {})))
+                                return chunks
+                            filenames_to_delete.update(extract_chunks(metadata.get("tree", {})))
+                        else:
+                            filenames_to_delete.update(metadata.get("chunks", []))
+                    except Exception as e:
+                        await ctx.send(f"Error parsing metadata: {e}")
+                        return
+            
+            # Early exit once metadata is found
+            if metadata_message:
+                break
+        
+        if not metadata_message:
+            await ctx.send(f"File or folder '{filename}' not found in this channel.")
+            return
+        
+        messages_to_delete.append(metadata_message)
+        
+        # Second pass: Find all chunk messages
+        async for message in channel.history(limit=2000):
+            for attachment in message.attachments:
+                if attachment.filename in filenames_to_delete:
+                    messages_to_delete.append(message)
+        
+        # Delete messages
+        delete_count = 0
+        for message in messages_to_delete:
+            try:
+                await message.delete()
+                delete_count += 1
+            except discord.errors.NotFound:
+                pass
+            except Exception as e:
+                await ctx.send(f"Error deleting message: {e}")
+                return
+        
+        embed = discord.Embed(
+            title="✅ Delete Complete",
+            description=f"Successfully deleted **{filename}** and {delete_count} associated messages.",
+            color=0x00ff00
+        )
+        await ctx.send(embed=embed)
+    
+    except Exception as e:
+        embed = discord.Embed(
+            title="❌ Delete Failed",
+            description=f"Error: {str(e)}",
+            color=0xff0000
+        )
+        await ctx.send(embed=embed)

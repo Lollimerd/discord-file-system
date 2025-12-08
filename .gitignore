@@ -42,4 +42,4 @@ pip-delete-this-directory.txt
 .pytype/
 .pyright/
 .pytest_cache/
-__init__.py
+__init__.py*

@@ -1,4 +1,15 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for, flash
+import sys, os
+
+# Add project root to sys.path to allow running this file directly
+# Project root is 2 directories up from this file (src/app/main.py -> src/app -> src -> root)
+if __name__ == "__main__" and __package__ is None:
+    # This hack allows relative imports to work when running directly
+    # We add the root directory to path, then explicitly import the module inside the 'src.app' package
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(root_dir)
+    __package__ = "src.app"
+
+from flask import Flask, request, render_template, send_file, redirect, url_for, flash, jsonify
 import discord, threading, json, asyncio, uuid, shutil, os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -83,6 +94,7 @@ async def upload_single_file(file_path, original_filename, server_id, channel_na
 
         metadata = {
             "original_filename": original_filename,
+            "original_size": os.path.getsize(file_path),
             "chunks": chunk_basenames,
             "encrypted": secure
         }
@@ -173,7 +185,10 @@ def upload_handler():
             current_level[path_parts[-1]] = {"type": "file", "chunks": processed_basenames}
 
         final_metadata = {
-            "upload_type": "folder", "folder_name": folder_name, "encrypted": secure_upload,
+            "upload_type": "folder", 
+            "folder_name": folder_name, 
+            "encrypted": secure_upload,
+            "total_size": sum(os.path.getsize(p) for p in all_chunk_paths), # calc size of all chunks
             "tree": folder_tree.get(folder_name, {}).get("children", folder_tree)
         }
         
@@ -195,6 +210,62 @@ def upload_handler():
             )
             future.result()
         return {"status": "success", "message": f"{len(files)} files uploaded."}
+
+
+
+# --- File Listing Logic ---
+async def fetch_files_from_channel(server_id, channel_name):
+    """Fetches and parses all metadata files from the channel to list available files."""
+    guild = bot.get_guild(int(server_id))
+    if not guild: return []
+    channel = discord.utils.get(guild.text_channels, name=channel_name)
+    if not channel: return []
+
+    files_list = []
+    
+    # We need to read messages to find metadata files
+    # This might be slow for huge history, but we'll use the same limit as download
+    async for message in channel.history(limit=2000):
+        for attachment in message.attachments:
+            if attachment.filename.endswith('_metadata.json'):
+                try:
+                    content = await attachment.read()
+                    try:
+                        # Try decrypting first if it might be encrypted
+                        # But we don't know if it is encrypted until we read it or try
+                        # The upload logic decides encryption.
+                        # Metadata itself is encrypted if secure=True.
+                        # Let's try to load as JSON first, if fail, try decrypt
+                        metadata = json.loads(content)
+                    except:
+                        try:
+                            metadata = json.loads(cipher.decrypt(content))
+                        except Exception as e:
+                            logger.error(f"Failed to parse metadata {attachment.filename}: {e}")
+                            continue
+
+                    # Add timestamp from message
+                    metadata['upload_date'] = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    metadata['message_id'] = message.id
+                    files_list.append(metadata)
+                except Exception as e:
+                    logger.error(f"Error reading attachment {attachment.filename}: {e}")
+
+    return files_list
+
+@app.route('/list_files', methods=['POST'])
+def list_files_route():
+    data = request.get_json()
+    server_id = data.get('server_id')
+    channel_name = data.get('channel_name')
+    
+    if not server_id or not channel_name:
+        return jsonify({"error": "Missing server_id or channel_name"}), 400
+
+    future = asyncio.run_coroutine_threadsafe(fetch_files_from_channel(server_id, channel_name), bot.loop)
+    files = future.result()
+    
+    return jsonify({"files": files})
 
 
 # --- Download Logic ---

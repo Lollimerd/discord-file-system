@@ -1,169 +1,505 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - {{ guild_name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Cloud | {{ guild_name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        glass: 'rgba(255, 255, 255, 0.05)',
+                        glassBorder: 'rgba(255, 255, 255, 0.1)',
+                        glassHover: 'rgba(255, 255, 255, 0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f172a;
+            background-image:
+                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
+            background-attachment: fixed;
+            color: #e2e8f0;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .glass-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus {
+            border-color: #8b5cf6;
+            background: rgba(0, 0, 0, 0.5);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .file-item {
+            transition: all 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateX(4px);
+        }
+    </style>
 </head>
-<body class="bg-slate-900 text-white p-4 md:p-8">
-    <div class="max-w-4xl mx-auto">
-        <header id="header" class="text-center mb-8 opacity-0">
-            <p class="text-slate-400">Now managing server:</p>
-            <h1 class="text-4xl font-bold text-violet-400">{{ guild_name }}</h1>
-            <a href="/" class="text-sm text-slate-500 hover:text-violet-400 transition-colors">&larr; Change Server</a>
+
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="w-full max-w-6xl z-10">
+        <!-- Header -->
+        <header id="header" class="flex justify-between items-center mb-10 p-6 glass-panel rounded-2xl opacity-0">
+            <div>
+                <p class="text-slate-400 text-xs uppercase tracking-widest font-semibold mb-1">Current Server</p>
+                <h1
+                    class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-fuchsia-400">
+                    {{ guild_name }}</h1>
+            </div>
+            <a href="/"
+                class="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
+                <i
+                    class="fa-solid fa-arrow-right-from-bracket text-slate-400 group-hover:text-white transition-colors"></i>
+                <span class="text-sm font-medium text-slate-300 group-hover:text-white">Switch Server</span>
+            </a>
         </header>
 
-        <div class="grid md:grid-cols-2 gap-8">
-            <div id="uploader-card" class="bg-slate-800 p-6 rounded-lg shadow-2xl opacity-0">
-                <h2 class="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">File Uploader</h2>
-                
-                <input type="file" id="file-input" multiple class="hidden">
-                <input type="file" id="folder-input" webkitdirectory directory class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                <div class="flex space-x-4 mb-4">
-                    <button onclick="document.getElementById('file-input').click()" class="w-full bg-slate-700 hover:bg-slate-600 p-3 rounded-lg text-center transition-colors">Select Files</button>
-                    <button onclick="document.getElementById('folder-input').click()" class="w-full bg-slate-700 hover:bg-slate-600 p-3 rounded-lg text-center transition-colors">Select Folder</button>
-                </div>
+            <!-- Left Column: Upload & Actions -->
+            <div class="lg:col-span-4 space-y-8">
+                <!-- Upload Card -->
+                <div id="upload-card" class="glass-panel rounded-2xl p-6 opacity-0">
+                    <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-violet-400"></i> Upload Files
+                    </h2>
 
-                <div class="mb-4">
-                    <label class="block mb-2 text-sm font-medium text-slate-300">Staging Area (<span id="file-count">0</span> files)</label>
-                    <div id="staging-area" class="h-40 bg-slate-900 rounded-lg p-2 overflow-y-auto text-xs text-slate-400 border border-slate-700">
-                        No files selected.
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label for="upload-channel" class="block mb-2 text-sm font-medium text-slate-300">Target Channel</label>
-                    <select id="upload-channel" name="channel" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5">
-                        {% for channel in channels %}
-                            <option value="{{ channel.name }}">#{{ channel.name }}</option>
-                        {% else %}
-                            <option disabled>No channels found</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="flex items-center mb-4">
-                    <input id="encrypt-checkbox" type="checkbox" class="w-4 h-4 text-violet-600 bg-slate-700 border-slate-600 rounded focus:ring-violet-600">
-                    <label for="encrypt-checkbox" class="ml-2 text-sm font-medium text-slate-300">Encrypt files?</label>
-                </div>
-                
-                <button id="upload-button" class="w-full text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed" disabled>
-                    Upload
-                </button>
-                <div id="upload-status" class="text-center mt-4 text-sm text-green-400"></div>
-            </div>
-
-            <div id="download-card" class="bg-slate-800 p-6 rounded-lg shadow-2xl opacity-0">
-                <h2 class="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">Download File</h2>
-                <form method="POST" action="/download">
-                    <input type="hidden" name="server_id" value="{{ server_id }}">
+                    <!-- Channel Select -->
                     <div class="mb-4">
-                        <label for="files" class="block mb-2 text-sm font-medium text-slate-300">File Path (e.g., folder/file.ext)</label>
-                        <input type="text" name="files" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="download-channel" class="block mb-2 text-sm font-medium text-slate-300">Source Channel</label>
-                        <select id="download-channel" name="channels" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5">
+                        <label class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">Destination
+                            Channel</label>
+                        <select id="upload-channel" class="glass-input w-full rounded-lg p-3 text-sm">
                             {% for channel in channels %}
-                                <option value="{{ channel.name }}">#{{ channel.name }}</option>
+                            <option value="{{ channel.name }}" class="bg-slate-800 text-white">#{{ channel.name }}
+                            </option>
                             {% else %}
-                                <option disabled>No channels found</option>
+                            <option disabled>No channels found</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="w-full text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">Download</button>
-                </form>
+
+                    <!-- File Drop / Select -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <button onclick="document.getElementById('file-input').click()"
+                            class="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-slate-600 hover:border-violet-500 hover:bg-violet-500/10 transition-all cursor-pointer group">
+                            <i class="fa-regular fa-file text-2xl mb-2 text-slate-400 group-hover:text-violet-400"></i>
+                            <span class="text-xs font-medium text-slate-400 group-hover:text-violet-300">Files</span>
+                        </button>
+                        <button onclick="document.getElementById('folder-input').click()"
+                            class="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-slate-600 hover:border-fuchsia-500 hover:bg-fuchsia-500/10 transition-all cursor-pointer group">
+                            <i
+                                class="fa-regular fa-folder text-2xl mb-2 text-slate-400 group-hover:text-fuchsia-400"></i>
+                            <span class="text-xs font-medium text-slate-400 group-hover:text-fuchsia-300">Folder</span>
+                        </button>
+                    </div>
+
+                    <input type="file" id="file-input" multiple class="hidden">
+                    <input type="file" id="folder-input" webkitdirectory directory class="hidden">
+
+                    <!-- Staging Area -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="text-xs font-medium text-slate-400 uppercase tracking-wide">Queue</label>
+                            <span id="file-count"
+                                class="text-xs bg-slate-700 px-2 py-0.5 rounded-full text-slate-300">0</span>
+                        </div>
+                        <div id="staging-area"
+                            class="h-32 rounded-lg bg-black/30 border border-white/5 p-2 overflow-y-auto custom-scrollbar text-xs text-slate-400 space-y-1">
+                            <div class="h-full flex items-center justify-center italic opacity-50">No files selected
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Encrypt Toggle -->
+                    <label
+                        class="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-colors mb-4">
+                        <input id="encrypt-checkbox" type="checkbox"
+                            class="w-4 h-4 rounded border-slate-600 text-violet-600 focus:ring-violet-600 bg-slate-700/50">
+                        <span class="text-sm font-medium text-slate-300">Encrypt Content</span>
+                        <i class="fa-solid fa-lock text-xs text-slate-500 ml-auto"></i>
+                    </label>
+
+                    <!-- Upload Button -->
+                    <button id="upload-button" disabled
+                        class="w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 rounded-lg text-white font-medium text-sm shadow-lg shadow-violet-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                        <span>Start Upload</span>
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+
+                    <div id="upload-status" class="text-center mt-3 text-xs font-medium min-h-[20px]"></div>
+                </div>
+
+                <!-- Simple Download Form (Legacy) -->
+                <div id="download-card" class="glass-panel rounded-2xl p-6 opacity-0">
+                    <h2 class="text-base font-semibold mb-4 text-slate-300">Manual Download</h2>
+                    <form method="POST" action="/download" class="space-y-3">
+                        <input type="hidden" name="server_id" value="{{ server_id }}">
+                        <input type="text" name="files" placeholder="Enter file path..."
+                            class="glass-input w-full rounded-lg p-2.5 text-xs" required>
+                        <select name="channels" class="glass-input w-full rounded-lg p-2.5 text-xs">
+                            {% for channel in channels %}
+                            <option value="{{ channel.name }}" class="bg-slate-800">#{{ channel.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit"
+                            class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs rounded-lg transition-colors">Download
+                            Path</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: File Explorer -->
+            <div class="lg:col-span-8 h-full">
+                <div id="explorer-panel"
+                    class="glass-panel rounded-2xl h-[600px] flex flex-col opacity-0 overflow-hidden">
+                    <!-- Explorer Toolbar -->
+                    <div class="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
+                        <h2 class="font-semibold flex items-center gap-2">
+                            <i class="fa-regular fa-folder-open text-fuchsia-400"></i> File Explorer
+                        </h2>
+                        <div class="flex items-center gap-3">
+                            <select id="explorer-channel"
+                                class="glass-input rounded-lg px-3 py-1.5 text-xs bg-transparent">
+                                {% for channel in channels %}
+                                <option value="{{ channel.name }}" class="bg-slate-800">#{{ channel.name }}</option>
+                                {% else %}
+                                <option disabled>No channels</option>
+                                {% endfor %}
+                            </select>
+                            <button id="refresh-files"
+                                class="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- File List Header -->
+                    <div
+                        class="grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-slate-500 uppercase tracking-wider bg-black/20">
+                        <div class="col-span-6">Name</div>
+                        <div class="col-span-2 text-right">Size</div>
+                        <div class="col-span-3 text-right">Date</div>
+                        <div class="col-span-1"></div>
+                    </div>
+
+                    <!-- File List Content -->
+                    <div id="file-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                        <!-- Items will be injected here -->
+                        <div class="flex flex-col items-center justify-center h-full text-slate-500 gap-3">
+                            <i class="fa-solid fa-satellite-dish text-4xl opacity-50"></i>
+                            <p class="text-sm">Select a channel to load files</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    
+
+    <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <script>
-        // --- Animation Logic ---
-        anime.timeline({ easing: 'easeOutQuad' })
-            .add({ targets: '#header', opacity: [0, 1], translateY: [-20, 0], duration: 600 })
-            .add({ targets: ['#uploader-card', '#download-card'], opacity: [0, 1], translateY: [20, 0], duration: 800, delay: anime.stagger(100) }, '-=300');
+        // Constants
+        const SERVER_ID = "{{ server_id }}";
 
-        // --- Uploader JavaScript Logic ---
-        const fileInput = document.getElementById('file-input');
-        const folderInput = document.getElementById('folder-input');
-        const uploadButton = document.getElementById('upload-button');
-        const stagingArea = document.getElementById('staging-area');
-        const fileCountSpan = document.getElementById('file-count');
-        const uploadStatus = document.getElementById('upload-status');
-        
-        let stagedFiles = [];
-
-        const updateStagingArea = () => {
-            if (stagedFiles.length === 0) {
-                stagingArea.innerHTML = 'No files selected.';
-                uploadButton.disabled = true;
-            } else {
-                stagingArea.innerHTML = '';
-                stagedFiles.forEach(file => {
-                    const fileElement = document.createElement('div');
-                    fileElement.textContent = file.webkitRelativePath || file.name;
-                    stagingArea.appendChild(fileElement);
-                });
-                uploadButton.disabled = false;
-            }
-            fileCountSpan.textContent = stagedFiles.length;
-        };
-        
-        const addFilesToStage = (files) => {
-            // Prevent duplicates
-            const newFiles = Array.from(files).filter(file => 
-                !stagedFiles.some(stagedFile => (stagedFile.webkitRelativePath || stagedFile.name) === (file.webkitRelativePath || file.name))
-            );
-            stagedFiles.push(...newFiles);
-            updateStagingArea();
+        // Utils
+        const formatSize = (bytes) => {
+            if (!bytes) return 'Unknown';
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         };
 
-        fileInput.addEventListener('change', (e) => addFilesToStage(e.target.files));
-        folderInput.addEventListener('change', (e) => addFilesToStage(e.target.files));
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
 
-        uploadButton.addEventListener('click', async () => {
-            if (stagedFiles.length === 0) return;
+        // UI Interactions
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial Animations
+            const timeline = anime.timeline({ easing: 'easeOutExpo' });
+            timeline
+                .add({ targets: '#header', opacity: [0, 1], translateY: [-20, 0], duration: 800 })
+                .add({ targets: '#upload-card', opacity: [0, 1], translateX: [-20, 0], duration: 800 }, '-=600')
+                .add({ targets: '#explorer-panel', opacity: [0, 1], translateX: [20, 0], duration: 800 }, '-=700')
+                .add({ targets: '#download-card', opacity: [0, 1], translateY: [20, 0], duration: 800 }, '-=600');
 
-            uploadButton.disabled = true;
-            uploadButton.textContent = 'Uploading...';
-            uploadStatus.textContent = '';
+            // --- File Explorer Logic ---
+            const explorerChannelSelect = document.getElementById('explorer-channel');
+            const fileListContainer = document.getElementById('file-list');
+            const refreshButton = document.getElementById('refresh-files');
+            const downloadForm = document.querySelector('#download-card form');
 
-            const formData = new FormData();
-            formData.append('server_id', '{{ server_id }}');
-            formData.append('channel', document.getElementById('upload-channel').value);
-            formData.append('encrypt', document.getElementById('encrypt-checkbox').checked);
-            
-            stagedFiles.forEach(file => {
-                // Use webkitRelativePath if available to preserve folder structure
-                const fileName = file.webkitRelativePath || file.name;
-                formData.append('files[]', file, fileName);
+            const loadFiles = async () => {
+                const channelName = explorerChannelSelect.value;
+                if (!channelName) return;
+
+                fileListContainer.innerHTML = '<div class="flex items-center justify-center h-full"><i class="fa-solid fa-circle-notch fa-spin text-2xl text-violet-500"></i></div>';
+
+                try {
+                    const response = await fetch('/list_files', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ server_id: SERVER_ID, channel_name: channelName })
+                    });
+                    const data = await response.json();
+
+                    fileListContainer.innerHTML = '';
+
+                    if (data.files && data.files.length > 0) {
+                        data.files.forEach((file, index) => {
+                            const isFolder = file.upload_type === 'folder';
+                            const iconClass = isFolder ? 'fa-folder text-fuchsia-400' : 'fa-file-lines text-violet-400';
+                            const size = file.original_size || file.total_size || 0;
+
+                            const el = document.createElement('div');
+                            el.className = 'file-item grid grid-cols-12 gap-4 px-4 py-3 rounded-lg items-center cursor-pointer group opacity-0';
+                            el.innerHTML = `
+                                <div class="col-span-6 flex items-center gap-3 overflow-hidden">
+                                    <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                                        <i class="fa-regular ${iconClass}"></i>
+                                    </div>
+                                    <div class="truncate">
+                                        <div class="text-sm font-medium text-slate-200 truncate group-hover:text-white transition-colors">
+                                            ${file.original_filename || file.folder_name}
+                                        </div>
+                                        <div class="text-[10px] text-slate-500 uppercase">${isFolder ? 'Folder' : (file.encrypted ? 'Encrypted' : 'Standard')}</div>
+                                    </div>
+                                </div>
+                                <div class="col-span-2 text-right text-xs text-slate-400 font-mono">${formatSize(size)}</div>
+                                <div class="col-span-3 text-right text-xs text-slate-400 opacity-70">${formatDate(file.upload_date)}</div>
+                                <div class="col-span-1 flex justify-end">
+                                    <button class="download-btn p-2 rounded-lg hover:bg-violet-600 text-slate-400 hover:text-white transition-all transform hover:scale-110 active:scale-95" title="Download">
+                                        <i class="fa-solid fa-download"></i>
+                                    </button>
+                                </div>
+                            `;
+
+                            // Attach Download Event
+                            const downloadBtn = el.querySelector('.download-btn');
+                            downloadBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                triggerDownload(file, channelName);
+                            };
+
+                            fileListContainer.appendChild(el);
+                        });
+
+                        // Staggered Animation for list items
+                        anime({
+                            targets: '.file-item',
+                            opacity: [0, 1],
+                            translateY: [10, 0],
+                            delay: anime.stagger(50),
+                            duration: 400,
+                            easing: 'easeOutQuad'
+                        });
+
+                    } else {
+                        fileListContainer.innerHTML = `
+                            <div class="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
+                                <i class="fa-regular fa-folder-open text-3xl opacity-30"></i>
+                                <span class="text-sm">No files found in this channel</span>
+                            </div>`;
+                    }
+                } catch (error) {
+                    console.error(error);
+                    fileListContainer.innerHTML = '<div class="text-red-400 text-center text-sm p-4">Failed to load files</div>';
+                }
+            };
+
+            const triggerDownload = (file, channelName) => {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/download';
+
+                const inputServer = document.createElement('input');
+                inputServer.type = 'hidden';
+                inputServer.name = 'server_id';
+                inputServer.value = SERVER_ID;
+
+                const inputFiles = document.createElement('input');
+                inputFiles.type = 'hidden';
+                inputFiles.name = 'files';
+                inputFiles.value = file.folder_name ? `${file.folder_name}/` : file.original_filename;
+
+                const inputChannel = document.createElement('input');
+                inputChannel.type = 'hidden';
+                inputChannel.name = 'channels';
+                inputChannel.value = channelName; // Uses the channel where it was found
+
+                form.appendChild(inputServer);
+                form.appendChild(inputFiles);
+                form.appendChild(inputChannel);
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            };
+
+            explorerChannelSelect.addEventListener('change', loadFiles);
+            refreshButton.addEventListener('click', () => {
+                const icon = refreshButton.querySelector('i');
+                icon.classList.add('fa-spin');
+                loadFiles().then(() => setTimeout(() => icon.classList.remove('fa-spin'), 500));
             });
 
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
+            // Load initial files if channel selected
+            if (explorerChannelSelect.value) loadFiles();
 
-                if (response.ok) {
-                    uploadStatus.textContent = result.message + ' ✅';
-                    stagedFiles = []; // Clear the stage on success
-                    updateStagingArea();
+
+            // --- Upload Logic ---
+            const fileInput = document.getElementById('file-input');
+            const folderInput = document.getElementById('folder-input');
+            const uploadButton = document.getElementById('upload-button');
+            const stagingArea = document.getElementById('staging-area');
+            const fileCountSpan = document.getElementById('file-count');
+            const uploadStatus = document.getElementById('upload-status');
+
+            let stagedFiles = [];
+
+            const updateStagingArea = () => {
+                if (stagedFiles.length === 0) {
+                    stagingArea.innerHTML = '<div class="h-full flex items-center justify-center italic opacity-50">No files selected</div>';
+                    uploadButton.disabled = true;
                 } else {
-                    throw new Error(result.message || 'Upload failed');
+                    stagingArea.innerHTML = '';
+                    stagedFiles.forEach((file, i) => {
+                        const fileEl = document.createElement('div');
+                        fileEl.className = 'flex justify-between items-center group bg-white/5 p-2 rounded hover:bg-white/10 transition-colors cursor-default';
+                        fileEl.innerHTML = `
+                            <span class="truncate pr-2">${file.webkitRelativePath || file.name}</span>
+                            <button onclick="removeFile(${i})" class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        `;
+                        stagingArea.appendChild(fileEl);
+                    });
+                    uploadButton.disabled = false;
                 }
-            } catch (error) {
-                uploadStatus.style.color = '#ef4444'; // red-500
-                uploadStatus.textContent = 'Error: ' + error.message;
-            } finally {
-                uploadButton.textContent = 'Upload';
-                // Re-enable button only if there are files
-                uploadButton.disabled = stagedFiles.length === 0;
-            }
+                fileCountSpan.textContent = stagedFiles.length;
+
+                // Animate numbers
+                anime({
+                    targets: fileCountSpan,
+                    scale: [1.2, 1],
+                    color: ['#fff', '#cbd5e1'],
+                    duration: 300
+                });
+            };
+
+            window.removeFile = (index) => {
+                stagedFiles.splice(index, 1);
+                updateStagingArea();
+            };
+
+            const addFilesToStage = (files) => {
+                const newFiles = Array.from(files).filter(file =>
+                    !stagedFiles.some(stagedFile => (stagedFile.webkitRelativePath || stagedFile.name) === (file.webkitRelativePath || file.name))
+                );
+                stagedFiles.push(...newFiles);
+                updateStagingArea();
+            };
+
+            fileInput.addEventListener('change', (e) => { addFilesToStage(e.target.files); fileInput.value = ''; });
+            folderInput.addEventListener('change', (e) => { addFilesToStage(e.target.files); folderInput.value = ''; });
+
+            uploadButton.addEventListener('click', async () => {
+                if (stagedFiles.length === 0) return;
+
+                uploadButton.disabled = true;
+                uploadButton.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Uploading...';
+                uploadStatus.textContent = '';
+                uploadStatus.className = 'text-center mt-3 text-xs font-medium min-h-[20px] text-violet-400';
+
+                const formData = new FormData();
+                formData.append('server_id', SERVER_ID);
+                formData.append('channel', document.getElementById('upload-channel').value);
+                formData.append('encrypt', document.getElementById('encrypt-checkbox').checked);
+
+                stagedFiles.forEach(file => {
+                    const fileName = file.webkitRelativePath || file.name;
+                    formData.append('files[]', file, fileName);
+                });
+
+                try {
+                    const response = await fetch('/upload', { method: 'POST', body: formData });
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        uploadStatus.innerHTML = '<span class="text-green-400"><i class="fa-solid fa-check"></i> ' + result.message + '</span>';
+                        stagedFiles = [];
+                        updateStagingArea();
+                        // Refresh file list if same channel
+                        if (document.getElementById('explorer-channel').value === document.getElementById('upload-channel').value) {
+                            loadFiles();
+                        }
+                    } else {
+                        throw new Error(result.message || 'Upload failed');
+                    }
+                } catch (error) {
+                    uploadStatus.innerHTML = '<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation"></i> ' + error.message + '</span>';
+                } finally {
+                    uploadButton.innerHTML = '<span>Start Upload</span><i class="fa-solid fa-paper-plane"></i>';
+                    if (stagedFiles.length > 0) uploadButton.disabled = false;
+                }
+            });
         });
     </script>
 </body>
+
 </html>

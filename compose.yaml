@@ -9,7 +9,6 @@
 # https://github.com/docker/awesome-compose
 services:
   server:
-    container_name: discord-cloud-server
     build:
       context: .
     ports:

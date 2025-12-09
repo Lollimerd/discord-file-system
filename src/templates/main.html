@@ -37,7 +37,7 @@
         }
 
         .glass-panel {
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(10, 15, 30, 0.95);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -45,7 +45,7 @@
         }
 
         .glass-input {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.7);
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
             transition: all 0.3s ease;
@@ -90,6 +90,7 @@
                 opacity: 0;
                 transform: translateY(-10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -101,6 +102,7 @@
                 opacity: 1;
                 transform: translateY(0);
             }
+
             to {
                 opacity: 0;
                 transform: translateY(-10px);
@@ -174,6 +176,14 @@
                     <input type="file" id="file-input" multiple class="hidden">
                     <input type="file" id="folder-input" webkitdirectory directory class="hidden">
 
+                    <!-- Folder Name Input (visible only during folder upload) -->
+                    <div id="folder-name-container" class="mb-4 hidden">
+                        <label class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">Folder
+                            Name</label>
+                        <input type="text" id="folder-name-input" placeholder="Enter folder name..."
+                            class="glass-input w-full rounded-lg p-3 text-sm" />
+                    </div>
+
                     <!-- Staging Area -->
                     <div class="mb-4">
                         <div class="flex justify-between items-end mb-2">
@@ -223,6 +233,41 @@
                             class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs rounded-lg transition-colors">Download
                             Path</button>
                     </form>
+                </div>
+
+                <!-- Bot Commands Card -->
+                <div id="commands-card" class="glass-panel rounded-2xl p-6 opacity-0">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-robot text-fuchsia-400"></i> Bot Commands
+                    </h2>
+                    <div class="space-y-3 text-sm text-slate-300">
+                        <div
+                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
+                            <code class="text-violet-400 font-bold block mb-1 text-xs">!ping</code>
+                            <p class="text-xs text-slate-400">Check if the bot is responsive.</p>
+                        </div>
+                        <div
+                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
+                            <code class="text-violet-400 font-bold block mb-1 text-xs">!channel_info &lt;id&gt;</code>
+                            <p class="text-xs text-slate-400">Get detailed information about a channel ID.</p>
+                        </div>
+                        <div
+                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
+                            <code class="text-violet-400 font-bold block mb-1 text-xs">!get_members</code>
+                            <p class="text-xs text-slate-400">List all members in the current guild.</p>
+                        </div>
+                        <div
+                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
+                            <code class="text-violet-400 font-bold block mb-1 text-xs">!check_attachments</code>
+                            <p class="text-xs text-slate-400">List recent attachments in the current channel.</p>
+                        </div>
+                        <div
+                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
+                            <code
+                                class="text-violet-400 font-bold block mb-1 text-xs">!delete_file &lt;filename&gt;</code>
+                            <p class="text-xs text-slate-400">Delete a file or folder by name (chat alternative).</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -303,7 +348,8 @@
                 .add({ targets: '#header', opacity: [0, 1], translateY: [-20, 0], duration: 800 })
                 .add({ targets: '#upload-card', opacity: [0, 1], translateX: [-20, 0], duration: 800 }, '-=600')
                 .add({ targets: '#explorer-panel', opacity: [0, 1], translateX: [20, 0], duration: 800 }, '-=700')
-                .add({ targets: '#download-card', opacity: [0, 1], translateY: [20, 0], duration: 800 }, '-=600');
+                .add({ targets: '#download-card', opacity: [0, 1], translateY: [20, 0], duration: 800 }, '-=600')
+                .add({ targets: '#commands-card', opacity: [0, 1], translateY: [20, 0], duration: 800 }, '-=600');
 
             // --- File Explorer Logic ---
             const explorerChannelSelect = document.getElementById('explorer-channel');
@@ -460,9 +506,8 @@
 
             const showNotification = (type, message) => {
                 const notification = document.createElement('div');
-                notification.className = `fixed top-4 right-4 px-4 py-3 rounded-lg text-sm font-medium ${
-                    type === 'success' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                } z-50 animate-fadeIn`;
+                notification.className = `fixed top-4 right-4 px-4 py-3 rounded-lg text-sm font-medium ${type === 'success' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                    } z-50 animate-fadeIn`;
                 notification.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'check' : 'exclamation'} mr-2"></i>${message}`;
                 document.body.appendChild(notification);
 
@@ -490,14 +535,30 @@
             const stagingArea = document.getElementById('staging-area');
             const fileCountSpan = document.getElementById('file-count');
             const uploadStatus = document.getElementById('upload-status');
+            const folderNameContainer = document.getElementById('folder-name-container');
+            const folderNameInput = document.getElementById('folder-name-input');
 
             let stagedFiles = [];
+            let isFolderUpload = false;
 
             const updateStagingArea = () => {
                 if (stagedFiles.length === 0) {
                     stagingArea.innerHTML = '<div class="h-full flex items-center justify-center italic opacity-50">No files selected</div>';
                     uploadButton.disabled = true;
+                    folderNameContainer.classList.add('hidden');
+                    isFolderUpload = false;
                 } else {
+                    // Check if this is a folder upload (files have webkitRelativePath)
+                    isFolderUpload = stagedFiles.some(f => f.webkitRelativePath);
+                    folderNameContainer.classList.toggle('hidden', !isFolderUpload);
+
+                    // Auto-populate folder name from first file's path if not set
+                    if (isFolderUpload && !folderNameInput.value) {
+                        const firstPath = stagedFiles[0].webkitRelativePath;
+                        const folderName = firstPath.split('/')[0];
+                        folderNameInput.value = folderName;
+                    }
+
                     stagingArea.innerHTML = '';
                     stagedFiles.forEach((file, i) => {
                         const fileEl = document.createElement('div');
@@ -552,6 +613,11 @@
                 formData.append('channel', document.getElementById('upload-channel').value);
                 formData.append('encrypt', document.getElementById('encrypt-checkbox').checked);
 
+                // Add folder name if this is a folder upload
+                if (isFolderUpload && folderNameInput.value) {
+                    formData.append('folder_name', folderNameInput.value);
+                }
+
                 stagedFiles.forEach(file => {
                     const fileName = file.webkitRelativePath || file.name;
                     formData.append('files[]', file, fileName);
@@ -564,6 +630,7 @@
                     if (response.ok) {
                         uploadStatus.innerHTML = '<span class="text-green-400"><i class="fa-solid fa-check"></i> ' + result.message + '</span>';
                         stagedFiles = [];
+                        folderNameInput.value = '';
                         updateStagingArea();
                         // Refresh file list if same channel
                         if (document.getElementById('explorer-channel').value === document.getElementById('upload-channel').value) {

@@ -79,9 +79,14 @@ async def delete_file(ctx, *, filename: str):
         await ctx.send("Please provide a filename to delete.")
         return
     
-    root_name = filename.split('/')[0]
+    root_name = filename.rstrip('/').split('/')[0]
     root_base = __import__('os').path.splitext(root_name)[0]
-    metadata_filename = f"{root_base}_metadata.json"
+    
+    # Try both metadata filename patterns
+    possible_metadata_names = [
+        f"{root_base}_metadata.json",  # Single file without extension
+        f"{root_name}_metadata.json"   # Folder with original name
+    ]
     
     messages_to_delete = []
     filenames_to_delete = set()
@@ -91,7 +96,7 @@ async def delete_file(ctx, *, filename: str):
         # First pass: Find metadata and extract all chunk filenames
         async for message in channel.history(limit=2000):
             for attachment in message.attachments:
-                if attachment.filename == metadata_filename:
+                if attachment.filename in possible_metadata_names:
                     metadata_message = message
                     try:
                         content = await attachment.read()

@@ -235,46 +235,13 @@
                     </form>
                 </div>
 
-                <!-- Bot Commands Card -->
-                <div id="commands-card" class="glass-panel rounded-2xl p-6 opacity-0">
-                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-robot text-fuchsia-400"></i> Bot Commands
-                    </h2>
-                    <div class="space-y-3 text-sm text-slate-300">
-                        <div
-                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
-                            <code class="text-violet-400 font-bold block mb-1 text-xs">!ping</code>
-                            <p class="text-xs text-slate-400">Check if the bot is responsive.</p>
-                        </div>
-                        <div
-                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
-                            <code class="text-violet-400 font-bold block mb-1 text-xs">!channel_info &lt;id&gt;</code>
-                            <p class="text-xs text-slate-400">Get detailed information about a channel ID.</p>
-                        </div>
-                        <div
-                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
-                            <code class="text-violet-400 font-bold block mb-1 text-xs">!get_members</code>
-                            <p class="text-xs text-slate-400">List all members in the current guild.</p>
-                        </div>
-                        <div
-                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
-                            <code class="text-violet-400 font-bold block mb-1 text-xs">!check_attachments</code>
-                            <p class="text-xs text-slate-400">List recent attachments in the current channel.</p>
-                        </div>
-                        <div
-                            class="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-violet-500/30 transition-colors">
-                            <code
-                                class="text-violet-400 font-bold block mb-1 text-xs">!delete_file &lt;filename&gt;</code>
-                            <p class="text-xs text-slate-400">Delete a file or folder by name (chat alternative).</p>
-                        </div>
-                    </div>
-                </div>
+
             </div>
 
             <!-- Right Column: File Explorer -->
             <div class="lg:col-span-8 h-full">
                 <div id="explorer-panel"
-                    class="glass-panel rounded-2xl h-[600px] flex flex-col opacity-0 overflow-hidden">
+                    class="glass-panel rounded-2xl min-h-[600px] h-full flex flex-col opacity-0 overflow-hidden">
                     <!-- Explorer Toolbar -->
                     <div class="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
                         <h2 class="font-semibold flex items-center gap-2">
@@ -312,6 +279,36 @@
                             <i class="fa-solid fa-satellite-dish text-4xl opacity-50"></i>
                             <p class="text-sm">Select a channel to load files</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            <!-- Bot Commands Card (Bottom Row) -->
+            <div id="commands-card" class="lg:col-span-12 glass-panel rounded-2xl p-6 opacity-0">
+                <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+                    <i class="fa-solid fa-robot text-fuchsia-400"></i> Bot Commands
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm text-slate-300">
+                    <div class="p-4 rounded-xl bg-black/40 border border-white/5 hover:border-violet-500/30 transition-all hover:-translate-y-1">
+                        <code class="text-violet-400 font-bold block mb-2 text-xs bg-violet-500/10 p-1 rounded w-fit">!ping</code>
+                        <p class="text-xs text-slate-400 leading-relaxed">Check if the bot is responsive and operational.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-black/40 border border-white/5 hover:border-violet-500/30 transition-all hover:-translate-y-1">
+                        <code class="text-violet-400 font-bold block mb-2 text-xs bg-violet-500/10 p-1 rounded w-fit">!channel_info &lt;id&gt;</code>
+                        <p class="text-xs text-slate-400 leading-relaxed">Get detailed information about a specific channel ID.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-black/40 border border-white/5 hover:border-violet-500/30 transition-all hover:-translate-y-1">
+                        <code class="text-violet-400 font-bold block mb-2 text-xs bg-violet-500/10 p-1 rounded w-fit">!get_members</code>
+                        <p class="text-xs text-slate-400 leading-relaxed">Retrieve a list of members in the current guild.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-black/40 border border-white/5 hover:border-violet-500/30 transition-all hover:-translate-y-1">
+                        <code class="text-violet-400 font-bold block mb-2 text-xs bg-violet-500/10 p-1 rounded w-fit">!check_attachments</code>
+                        <p class="text-xs text-slate-400 leading-relaxed">List recent file attachments sent in the current channel.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-black/40 border border-white/5 hover:border-violet-500/30 transition-all hover:-translate-y-1">
+                        <code class="text-violet-400 font-bold block mb-2 text-xs bg-violet-500/10 p-1 rounded w-fit">!delete_file &lt;name&gt;</code>
+                        <p class="text-xs text-slate-400 leading-relaxed">Delete a file or folder via chat commands.</p>
                     </div>
                 </div>
             </div>

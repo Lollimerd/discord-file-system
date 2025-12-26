@@ -153,13 +153,16 @@ def upload_handler():
             
             temp_file_path = os.path.join(DATA_DIRECTORY, f"{uuid.uuid4()}{os.path.splitext(file.filename)[1]}")
             file.save(temp_file_path)
+            logger.info(f"Saved file to {temp_file_path}")
 
             try:
+                logger.info(f"Uploading file '{file.filename}' to channel '{channel_name}'...")
                 future = asyncio.run_coroutine_threadsafe(
                     upload_single_file(temp_file_path, file.filename, server_id, channel_name, secure_upload),
                     bot.loop
                 )
                 future.result()
+                logger.info(f"File '{file.filename}' uploaded successfully.")
             except Exception as e:
                 logger.error(f"Error uploading file '{file.filename}': {e}")
                 # Ensure cleanup if upload fails

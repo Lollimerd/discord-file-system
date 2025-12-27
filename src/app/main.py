@@ -8,7 +8,8 @@ if __name__ == "__main__" and __package__ is None:
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.append(root_dir)
     __package__ = "src.app"
-from flask import Flask, request, render_template, send_file, redirect, url_for, flash, jsonify
+    
+from flask import Flask, request, render_template, send_file, redirect, url_for, flash, jsonify, after_this_request
 import threading, json, asyncio, uuid, shutil, os
 from dotenv import load_dotenv
 from ..dis_commands import bot
@@ -199,6 +200,15 @@ def download_route():
     file_path = future.result() 
 
     if file_path and os.path.exists(file_path):
+        @after_this_request
+        def remove_file(response):
+            try:
+                os.remove(file_path)
+                logger.info(f"Removed temporary file after download: {file_path}")
+            except Exception as error:
+                logger.error(f"Error removing file: {error}")
+            return response
+            
         return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
     else:
         flash(f"File '{filename}' not found or failed to download.")

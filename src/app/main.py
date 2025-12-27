@@ -86,7 +86,6 @@ def server_page(server_id):
         flash(f"Could not retrieve data for Server ID {server_id}.")
         return redirect(url_for('index'))
 
-
 # --- Upload Logic ---
 @app.route('/upload', methods=['POST'])
 def upload_handler():
@@ -174,8 +173,6 @@ def upload_handler():
                     os.remove(temp_file_path)
         return jsonify({"status": "success", "message": f"{len(files)} files uploaded."})
 
-
-
 # --- File Listing Logic ---
 @app.route('/list_files', methods=['POST'])
 def list_files_route():
@@ -190,7 +187,6 @@ def list_files_route():
     files = future.result()
     
     return jsonify({"files": files})
-
 
 # --- Download Logic ---
 @app.route('/download', methods=['POST'])

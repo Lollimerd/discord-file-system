@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             color: ['#fff', '#cbd5e1'],
             duration: 300
         });
+
     };
 
     window.removeFile = (index) => {

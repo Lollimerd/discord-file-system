@@ -8,7 +8,6 @@ from ..dis_commands import bot
 from .util import logger, cipher, DATA_DIRECTORY, process_and_chunk_file
 
 # --- Upload Operations ---
-
 async def upload_single_file(file_path, original_filename, server_id, channel_name, secure):
     """Handles the upload process for a single file using the unified chunker."""
     guild = bot.get_guild(int(server_id))
@@ -84,7 +83,6 @@ async def upload_folder(metadata_obj, chunk_paths, server_id, channel_name):
 
 
 # --- Download Operations ---
-
 async def download_from_discord(server_id, channel_name, requested_path):
     """Downloads a file or folder, with synchronized and robust error handling."""
     # Get guild and channel
@@ -237,7 +235,6 @@ async def _build_folder_from_tree(channel, metadata_tree, base_download_path, fi
 
 
 # --- Delete Operations ---
-
 async def delete_from_discord(server_id, channel_name, file_name):
     """Deletes a file or folder and all associated chunks from Discord channel."""
     guild = bot.get_guild(int(server_id))
@@ -358,7 +355,6 @@ async def delete_from_discord(server_id, channel_name, file_name):
         return False
 
 # --- Listing Operations ---
-
 async def fetch_files_from_channel(server_id, channel_name):
     """Fetches and parses all metadata files from the channel to list available files."""
     guild = bot.get_guild(int(server_id))

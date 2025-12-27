@@ -48,6 +48,7 @@ if not enc_key_str:
 ENCRYPTION_KEY = enc_key_str.encode()
 cipher = Fernet(ENCRYPTION_KEY)
 CHUNK_SIZE = 10 * 1024 * 1024 # Default to 10MB if not set
+
 # Calculate project root relative to this file (src/utils/util.py)
 # We want to reach the repo root where 'Data' is located.
 # src/utils/util.py -> src/utils -> src -> repo_root

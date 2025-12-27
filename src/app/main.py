@@ -8,7 +8,6 @@ if __name__ == "__main__" and __package__ is None:
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.append(root_dir)
     __package__ = "src.app"
-
 from flask import Flask, request, render_template, send_file, redirect, url_for, flash, jsonify
 import threading, json, asyncio, uuid, shutil, os
 from dotenv import load_dotenv
@@ -31,11 +30,12 @@ from ..utils.file_ops import (
 
 load_dotenv()
 
-# Calculate the path to the 'template' folder in the project root
+# Calculate paths for templates and static files relative to this file
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 template_dir = os.path.join(base_dir, 'templates')
+static_dir = os.path.join(base_dir, 'static')
 
-app = Flask(__name__, template_folder=template_dir)
+app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 app.secret_key = os.urandom(24) 
 
 # bot token

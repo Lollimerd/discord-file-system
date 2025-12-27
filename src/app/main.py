@@ -8,7 +8,7 @@ if __name__ == "__main__" and __package__ is None:
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.append(root_dir)
     __package__ = "src.app"
-    
+
 from flask import Flask, request, render_template, send_file, redirect, url_for, flash, jsonify, after_this_request
 import threading, json, asyncio, uuid, shutil, os
 from dotenv import load_dotenv
@@ -29,6 +29,7 @@ from ..utils.file_ops import (
     fetch_files_from_channel
 )
 
+# load details from env
 load_dotenv()
 
 # Calculate paths for templates and static files relative to this file

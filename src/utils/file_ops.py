@@ -109,8 +109,21 @@ async def download_from_discord(server_id, channel_name, requested_path):
     logger.info(f"Cache built with {len(file_cache)} files.")
 
     # Get metadata
-    metadata_message = file_cache.get(metadata_filename_to_find)
-    if not metadata_message: return logger.error(f"Metadata for '{root_object_name}' not found.")
+    metadata_message = None
+    
+    # 1. Exact match attempt
+    if metadata_filename_to_find in file_cache:
+        metadata_message = file_cache[metadata_filename_to_find]
+        logger.info(f"Metadata found via exact match: {metadata_filename_to_find}")
+    
+    # 2. Fallback: Try sanitized version (Discord replaces spaces with underscores)
+    if not metadata_message:
+        sanitized_name = metadata_filename_to_find.replace(' ', '_')
+        if sanitized_name in file_cache:
+            metadata_message = file_cache[sanitized_name]
+            logger.info(f"Metadata found via sanitized match: {sanitized_name}")
+            
+    if not metadata_message: return logger.error(f"Metadata for '{root_object_name}' not found (checked '{metadata_filename_to_find}' and '{metadata_filename_to_find.replace(' ', '_')}').")
 
     encrypted_metadata_content = await metadata_message.attachments[0].read()
     try:

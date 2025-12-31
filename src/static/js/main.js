@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputFiles = document.createElement('input');
         inputFiles.type = 'hidden';
         inputFiles.name = 'files';
-        inputFiles.value = file.folder_name ? `${file.folder_name}/` : file.original_filename;
+        inputFiles.value = file.folder_name ? `${file.folder_name}` : file.original_filename;
 
         const inputChannel = document.createElement('input');
         inputChannel.type = 'hidden';

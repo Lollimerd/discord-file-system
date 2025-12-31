@@ -1,4 +1,4 @@
-import sys, os
+import threading, json, asyncio, uuid, shutil, os, sys
 
 # Add project root to sys.path to allow running this file directly
 # Project root is 2 directories up from this file (src/app/main.py -> src/app -> src -> root)
@@ -10,7 +10,6 @@ if __name__ == "__main__" and __package__ is None:
     __package__ = "src.app"
 
 from flask import Flask, request, render_template, send_file, redirect, url_for, flash, jsonify, after_this_request
-import threading, json, asyncio, uuid, shutil, os
 from dotenv import load_dotenv
 from ..dis_commands import bot
 from ..utils.util import (

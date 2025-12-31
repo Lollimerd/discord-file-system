@@ -38,10 +38,13 @@ async def upload_single_file(file_path, original_filename, server_id, channel_na
         await channel.send(file=discord.File(metadata_filename, filename=metadata_attachment_name))
         os.remove(metadata_filename)
 
-        for chunk_path in chunk_paths:
-            await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path)))
-            os.remove(chunk_path) # Clean up chunk as we go
-            await asyncio.sleep(1.5)
+        # Create semaphore to limit concurrent uploads (adjust limit as needed)  
+        semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads
+        async with semaphore:
+            for chunk_path in chunk_paths:
+                await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path)))
+                os.remove(chunk_path) # Clean up chunk as we go
+                await asyncio.sleep(0.1)
 
         logger.info(f"Successfully uploaded '{original_filename}'.")
     except Exception as e:
@@ -72,13 +75,16 @@ async def upload_folder(metadata_obj, chunk_paths, server_id, channel_name):
 
     # 2. Upload All Chunks
     logger.info(f"Uploading {len(chunk_paths)} total chunks...")
-    for i, chunk_path in enumerate(chunk_paths):
-        try:
-            logger.info(f"Uploading chunk {i+1}/{len(chunk_paths)}: {os.path.basename(chunk_path)}")
-            await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path).replace(' ', '_')))
-            await asyncio.sleep(1.5)
-        finally:
-            if os.path.exists(chunk_path): os.remove(chunk_path)
+    # Create semaphore to limit concurrent uploads (adjust limit as needed)  
+    semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads
+    async with semaphore:
+        for i, chunk_path in enumerate(chunk_paths):
+            try:
+                logger.info(f"Uploading chunk {i+1}/{len(chunk_paths)}: {os.path.basename(chunk_path)}")
+                await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path).replace(' ', '_')))
+                await asyncio.sleep(0.1)
+            finally:
+                if os.path.exists(chunk_path): os.remove(chunk_path)
     logger.info(f"Successfully uploaded folder '{metadata_obj['folder_name']}'.")
 
 
@@ -131,73 +137,77 @@ async def download_from_discord(server_id, channel_name, requested_path):
     
     is_encrypted = metadata.get("encrypted", False)
 
-    # Get folder
-    if metadata.get("upload_type") == "folder":
-        path_parts = requested_path.split('/')
-        if len(path_parts) > 1:
-            logger.info(f"Request is for a specific file inside a folder: {requested_path}")
-            current_item = {"children": metadata["tree"]}
-            for part in path_parts:
-                current_item = current_item.get("children", {}).get(part)
-                if not current_item:
-                    logger.error(f"Path '{requested_path}' not found in folder metadata.")
-                    return None
-            
-            if current_item.get("type") == "file":
-                reassembled_file_path = os.path.join(DATA_DIRECTORY, os.path.basename(requested_path))
-                all_chunks_found = True
-                with open(reassembled_file_path, 'wb') as f:
-                    for chunk_filename in current_item["chunks"]:
-                        if chunk_filename in file_cache:
-                            f.write(await file_cache[chunk_filename].attachments[0].read())
-                        else:
-                            all_chunks_found = False
-                            break
-                if not all_chunks_found: return None
-                if is_encrypted:
-                    with open(reassembled_file_path, 'rb') as f: data = f.read()
-                    with open(reassembled_file_path, 'wb') as f: f.write(cipher.decrypt(data))
-                return reassembled_file_path
-            else:
-                return None
-        else:
-            logger.info(f"Request is for the entire folder: {metadata['folder_name']}. Preparing ZIP.")
-            base_download_path = os.path.join(DATA_DIRECTORY, metadata['folder_name'])
-            if os.path.exists(base_download_path): shutil.rmtree(base_download_path)
-            os.makedirs(base_download_path)
+    # Create semaphore to limit concurrent uploads (adjust limit as needed)  
+    semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads
 
-            await _build_folder_from_tree(channel, metadata["tree"], base_download_path, file_cache, is_encrypted)
-            
-            zip_path = os.path.join(DATA_DIRECTORY, f"{metadata['folder_name']}.zip")
-            shutil.make_archive(base_name=zip_path.replace('.zip', ''), format='zip', root_dir=base_download_path)
-            shutil.rmtree(base_download_path)
-            logger.info(f"Folder successfully zipped to {zip_path}")
-            return zip_path
-    else:
-        logger.info(f"Request is for a single file: {metadata['original_filename']}")
-        reassembled_file_path = os.path.join(DATA_DIRECTORY, metadata["original_filename"])
-        all_chunks_found = True
-        with open(reassembled_file_path, 'wb') as f:
-            for chunk_filename in metadata["chunks"]:
-                if chunk_filename in file_cache:
-                    f.write(await file_cache[chunk_filename].attachments[0].read())
+    async with semaphore:
+        # Get folder
+        if metadata.get("upload_type") == "folder":
+            path_parts = requested_path.split('/')
+            if len(path_parts) > 1:
+                logger.info(f"Request is for a specific file inside a folder: {requested_path}")
+                current_item = {"children": metadata["tree"]}
+                for part in path_parts:
+                    current_item = current_item.get("children", {}).get(part)
+                    if not current_item:
+                        logger.error(f"Path '{requested_path}' not found in folder metadata.")
+                        return None
+                
+                if current_item.get("type") == "file":
+                    reassembled_file_path = os.path.join(DATA_DIRECTORY, os.path.basename(requested_path))
+                    all_chunks_found = True
+                    with open(reassembled_file_path, 'wb') as f:
+                        for chunk_filename in current_item["chunks"]:
+                            if chunk_filename in file_cache:
+                                f.write(await file_cache[chunk_filename].attachments[0].read())
+                            else:
+                                all_chunks_found = False
+                                break
+                    if not all_chunks_found: return None
+                    if is_encrypted:
+                        with open(reassembled_file_path, 'rb') as f: data = f.read()
+                        with open(reassembled_file_path, 'wb') as f: f.write(cipher.decrypt(data))
+                    return reassembled_file_path
                 else:
-                    logger.error(f"FATAL: Chunk '{chunk_filename}' not found for file '{metadata['original_filename']}'")
-                    all_chunks_found = False
-                    break
-        
-        if not all_chunks_found:
-            if os.path.exists(reassembled_file_path): os.remove(reassembled_file_path)
-            return None
+                    return None
+            else:
+                logger.info(f"Request is for the entire folder: {metadata['folder_name']}. Preparing ZIP.")
+                base_download_path = os.path.join(DATA_DIRECTORY, metadata['folder_name'])
+                if os.path.exists(base_download_path): shutil.rmtree(base_download_path)
+                os.makedirs(base_download_path)
 
-        if is_encrypted:
-            try:
-                with open(reassembled_file_path, 'rb') as f: data = f.read()
-                with open(reassembled_file_path, 'wb') as f: f.write(cipher.decrypt(data))
-            except Exception as e:
-                logger.error(f"Decryption failed for '{metadata['original_filename']}': {e}")
+                await _build_folder_from_tree(channel, metadata["tree"], base_download_path, file_cache, is_encrypted)
+                
+                zip_path = os.path.join(DATA_DIRECTORY, f"{metadata['folder_name']}.zip")
+                shutil.make_archive(base_name=zip_path.replace('.zip', ''), format='zip', root_dir=base_download_path)
+                shutil.rmtree(base_download_path)
+                logger.info(f"Folder successfully zipped to {zip_path}")
+                return zip_path
+        else:
+            logger.info(f"Request is for a single file: {metadata['original_filename']}")
+            reassembled_file_path = os.path.join(DATA_DIRECTORY, metadata["original_filename"])
+            all_chunks_found = True
+            with open(reassembled_file_path, 'wb') as f:
+                for chunk_filename in metadata["chunks"]:
+                    if chunk_filename in file_cache:
+                        f.write(await file_cache[chunk_filename].attachments[0].read())
+                    else:
+                        logger.error(f"FATAL: Chunk '{chunk_filename}' not found for file '{metadata['original_filename']}'")
+                        all_chunks_found = False
+                        break
+            
+            if not all_chunks_found:
                 if os.path.exists(reassembled_file_path): os.remove(reassembled_file_path)
                 return None
+
+            if is_encrypted:
+                try:
+                    with open(reassembled_file_path, 'rb') as f: data = f.read()
+                    with open(reassembled_file_path, 'wb') as f: f.write(cipher.decrypt(data))
+                except Exception as e:
+                    logger.error(f"Decryption failed for '{metadata['original_filename']}': {e}")
+                    if os.path.exists(reassembled_file_path): os.remove(reassembled_file_path)
+                    return None
         return reassembled_file_path
 
 async def _build_folder_from_tree(channel, metadata_tree, base_download_path, file_cache, is_encrypted):
@@ -258,8 +268,7 @@ async def delete_from_discord(server_id, channel_name, file_name):
         metadata_filename_found = None
         
         # Scan all messages for metadata files
-        # We need to read content to confirm it's the right file, as filenames might start with UUIDs 
-        # or be renamed by Discord (spaces -> underscores)
+        # We need to read content to confirm it's the right file, as filenames might start with UUIDs or be renamed by Discord (spaces -> underscores)
         async for message in channel.history(limit=2000):
             for attachment in message.attachments:
                 if attachment.filename.endswith('_metadata.json'):
@@ -335,18 +344,21 @@ async def delete_from_discord(server_id, channel_name, file_name):
         
         logger.info(f"Found {len(messages_to_delete)} messages to delete for '{target_name}'")
         
-        # Delete all related messages
-        delete_count = 0
-        for message in messages_to_delete:
-            try:
-                await message.delete()
-                delete_count += 1
-                await asyncio.sleep(0.5)  # Rate limiting
-            except discord.errors.NotFound:
-                pass
-            except Exception as e:
-                logger.error(f"Error deleting message {message.id}: {e}")
+        # Create semaphore to limit concurrent uploads (adjust limit as needed)  
+        semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads
         
+        # Delete all related messages in batches of up to 100
+        async with semaphore:
+            for i in range(0, len(messages_to_delete), 100):  
+                try:
+                    batch = messages_to_delete[i:i+100]  
+                    await channel.delete_messages(batch)  
+                    await asyncio.sleep(0.1)  # Rate limit for bulk operations
+                except discord.errors.NotFound:
+                    pass
+                except Exception as e:
+                    logger.error(f"Error deleting message {i}: {e}")
+            
         logger.info(f"Successfully deleted '{target_name}'")
         return True
 
@@ -364,32 +376,31 @@ async def fetch_files_from_channel(server_id, channel_name):
 
     files_list = []
     
+    # Create semaphore to limit concurrent uploads (adjust limit as needed)  
+    semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads 
+
     # We need to read messages to find metadata files
     # This might be slow for huge history, but we'll use the same limit as download
-    async for message in channel.history(limit=2000):
-        for attachment in message.attachments:
-            if attachment.filename.endswith('_metadata.json'):
-                try:
-                    content = await attachment.read()
+    async with semaphore:
+        async for message in channel.history(limit=2000):
+            for attachment in message.attachments:
+                if attachment.filename.endswith('_metadata.json'):
                     try:
-                        # Try decrypting first if it might be encrypted
-                        # But we don't know if it is encrypted until we read it or try
-                        # The upload logic decides encryption.
-                        # Metadata itself is encrypted if secure=True.
-                        # Let's try to load as JSON first, if fail, try decrypt
-                        metadata = json.loads(content)
-                    except:
+                        content = await attachment.read()
                         try:
-                            metadata = json.loads(cipher.decrypt(content))
-                        except Exception as e:
-                            logger.error(f"Failed to parse metadata {attachment.filename}: {e}")
-                            continue
+                            # Let's try to load as JSON first, if fail, try decrypt
+                            metadata = json.loads(content)
+                        except:
+                            try:
+                                metadata = json.loads(cipher.decrypt(content))
+                            except Exception as e:
+                                logger.error(f"Failed to parse metadata {attachment.filename}: {e}")
+                                continue
 
-                    # Add timestamp from message
-                    metadata['upload_date'] = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                    metadata['message_id'] = message.id
-                    files_list.append(metadata)
-                except Exception as e:
-                    logger.error(f"Error reading attachment {attachment.filename}: {e}")
-
+                        # Add timestamp from message
+                        metadata['upload_date'] = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        metadata['message_id'] = message.id
+                        files_list.append(metadata)
+                    except Exception as e:
+                        logger.error(f"Error reading attachment {attachment.filename}: {e}")
     return files_list

@@ -7,6 +7,45 @@ import shutil
 from ..dis_commands import bot
 from .util import logger, cipher, DATA_DIRECTORY, process_and_chunk_file
 
+# --- Listing Operations ---
+async def fetch_files_from_channel(server_id, channel_name):
+    """Fetches and parses all metadata files from the channel to list available files."""
+    guild = bot.get_guild(int(server_id))
+    if not guild: return []
+    channel = discord.utils.get(guild.text_channels, name=channel_name)
+    if not channel: return []
+
+    files_list = []
+    
+    # Create semaphore to limit concurrent uploads (adjust limit as needed)  
+    semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads 
+
+    # We need to read messages to find metadata files
+    # This might be slow for huge history, but we'll use the same limit as download
+    async with semaphore:
+        async for message in channel.history(limit=2000):
+            for attachment in message.attachments:
+                if attachment.filename.endswith('_metadata.json'):
+                    try:
+                        content = await attachment.read()
+                        try:
+                            # Let's try to load as JSON first, if fail, try decrypt
+                            metadata = json.loads(content)
+                        except:
+                            try:
+                                metadata = json.loads(cipher.decrypt(content))
+                            except Exception as e:
+                                logger.error(f"Failed to parse metadata {attachment.filename}: {e}")
+                                continue
+
+                        # Add timestamp from message
+                        metadata['upload_date'] = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        metadata['message_id'] = message.id
+                        files_list.append(metadata)
+                    except Exception as e:
+                        logger.error(f"Error reading attachment {attachment.filename}: {e}")
+    return files_list
+
 # --- Upload Operations ---
 async def upload_chunk_concurrently(semaphore, channel, chunk_path, index, total):
     """Helper to upload a single chunk with semaphore/concurrency control."""
@@ -53,7 +92,7 @@ async def upload_single_file(file_path, original_filename, server_id, channel_na
         os.remove(metadata_filename)
 
         # Create semaphore to limit concurrent uploads (adjust limit as needed)  
-        semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads
+        semaphore = asyncio.Semaphore(10)  # Max 10 concurrent uploads
         async with semaphore:
             for chunk_path in chunk_paths:
                 await channel.send(file=discord.File(chunk_path, filename=os.path.basename(chunk_path)))
@@ -87,7 +126,6 @@ async def upload_folder(metadata_obj, chunk_paths, server_id, channel_name):
     finally:
         os.remove(metadata_filename)
 
-    # 2. Upload All Chunks
     # 2. Upload All Chunks
     logger.info(f"Uploading {len(chunk_paths)} total chunks...")
     # Create semaphore to limit concurrent uploads (adjust limit as needed)  
@@ -153,7 +191,7 @@ async def download_from_discord(server_id, channel_name, requested_path):
     is_encrypted = metadata.get("encrypted", False)
 
     # Create semaphore to limit concurrent uploads (adjust limit as needed)  
-    semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads
+    semaphore = asyncio.Semaphore(10)  # Max 10 concurrent uploads
 
     async with semaphore:
         # Get folder
@@ -360,19 +398,31 @@ async def delete_from_discord(server_id, channel_name, file_name):
         logger.info(f"Found {len(messages_to_delete)} messages to delete for '{target_name}'")
         
         # Create semaphore to limit concurrent uploads (adjust limit as needed)  
-        semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads
+        semaphore = asyncio.Semaphore(10)  # Max 10 concurrent uploads
         
         # Delete all related messages in batches of up to 100
         async with semaphore:
             for i in range(0, len(messages_to_delete), 100):  
                 try:
                     batch = messages_to_delete[i:i+100]  
-                    await channel.delete_messages(batch)  
+                    await channel.delete_messages(batch)
                     await asyncio.sleep(0.1)  # Rate limit for bulk operations
                 except discord.errors.NotFound:
+                    logger.warning(f"Some messages in batch starting at index {i} were already deleted.")
                     pass
-                except Exception as e:
+                except Exception as e: # if message more than 14 days old, bulk delete won't work
                     logger.error(f"Error deleting message {i}: {e}")
+                    # Delete all related messages
+                    delete_count = 0
+                    for message in messages_to_delete:
+                        try:
+                            await message.delete(delay=0.1)
+                            delete_count += 1
+                            await asyncio.sleep(0.5)  # Rate limiting
+                        except discord.errors.NotFound:
+                            pass
+                        except Exception as e:
+                            logger.error(f"Error deleting message {message.id}: {e}")
             
         logger.info(f"Successfully deleted '{target_name}'")
         return True
@@ -380,42 +430,3 @@ async def delete_from_discord(server_id, channel_name, file_name):
     except Exception as e:
         logger.error(f"An error occurred during delete for '{file_name}': {e}")
         return False
-
-# --- Listing Operations ---
-async def fetch_files_from_channel(server_id, channel_name):
-    """Fetches and parses all metadata files from the channel to list available files."""
-    guild = bot.get_guild(int(server_id))
-    if not guild: return []
-    channel = discord.utils.get(guild.text_channels, name=channel_name)
-    if not channel: return []
-
-    files_list = []
-    
-    # Create semaphore to limit concurrent uploads (adjust limit as needed)  
-    semaphore = asyncio.Semaphore(4)  # Max 4 concurrent uploads 
-
-    # We need to read messages to find metadata files
-    # This might be slow for huge history, but we'll use the same limit as download
-    async with semaphore:
-        async for message in channel.history(limit=2000):
-            for attachment in message.attachments:
-                if attachment.filename.endswith('_metadata.json'):
-                    try:
-                        content = await attachment.read()
-                        try:
-                            # Let's try to load as JSON first, if fail, try decrypt
-                            metadata = json.loads(content)
-                        except:
-                            try:
-                                metadata = json.loads(cipher.decrypt(content))
-                            except Exception as e:
-                                logger.error(f"Failed to parse metadata {attachment.filename}: {e}")
-                                continue
-
-                        # Add timestamp from message
-                        metadata['upload_date'] = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                        metadata['message_id'] = message.id
-                        files_list.append(metadata)
-                    except Exception as e:
-                        logger.error(f"Error reading attachment {attachment.filename}: {e}")
-    return files_list

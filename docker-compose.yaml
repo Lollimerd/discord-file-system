@@ -12,6 +12,7 @@ services:
     container_name: discord-fs
     build:
       context: .
+    restart: always
     ports:
       - 5000:5000
     user: root

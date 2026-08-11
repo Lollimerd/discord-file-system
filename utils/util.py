@@ -1,4 +1,4 @@
-from ..dis_commands import bot
+from dis_commands import bot
 import logging, colorlog, os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -49,10 +49,10 @@ ENCRYPTION_KEY = enc_key_str.encode()
 cipher = Fernet(ENCRYPTION_KEY)
 CHUNK_SIZE = 10 * 1024 * 1024 # Default to 10MB if not set
 
-# Calculate project root relative to this file (src/utils/util.py)
+# Calculate project root relative to this file (utils/util.py)
 # We want to reach the repo root where 'Data' is located.
-# src/utils/util.py -> src/utils -> src -> repo_root
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# utils/util.py -> utils -> repo_root
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIRECTORY = os.path.join(PROJECT_ROOT, 'Data')
 if not os.path.exists(DATA_DIRECTORY): os.makedirs(DATA_DIRECTORY)
 

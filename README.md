@@ -125,7 +125,7 @@ enc_key="YOUR_SECRET_ENCRYPTION_KEY_HERE"
 Once everything is configured, start the application:
 
 ```bash
-python -m src.app.main
+python app/main.py
 ```
 
 The Flask server will be accessible at `http://127.0.0.1:5000` by default.
@@ -170,19 +170,21 @@ These commands can be used directly in your Discord server for diagnostics and i
 ```
 .
 ├── Data/                 # Temporary directory for file processing (auto-generated)
-├── src/
-│   ├── app/
-│   │   └── main.py       # Core Flask and Discord bot logic
-│   ├── utils/
-│   │   └── util.py       # Helper functions and logger configuration
-│   ├── templates/
-│   │   ├── index.html    # Server selection page
-│   │   ├── main.html     # Main dashboard for upload/download
-│   │   └── uploaded.html # Success confirmation page
-│   ├── dis_commands.py   # Defines the Discord bot's '!' commands
-│   └── __init__.py
+├── app/
+│   └── main.py           # Core Flask and Discord bot logic
+├── static/
+│   ├── css/
+│   └── js/
+├── templates/
+│   ├── index.html        # Server selection page
+│   ├── main.html         # Main dashboard for upload/download
+│   └── uploaded.html     # Success confirmation page
+├── utils/
+│   ├── file_ops.py       # Upload, download, delete operations
+│   └── util.py           # Helper functions and logger configuration
+├── dis_commands.py       # Defines the Discord bot's '!' commands
 ├── .env                  # Environment variables (bot token, encryption key)
 ├── requirements.txt      # Python dependencies
 ├── Dockerfile
-└── compose.yaml
+└── docker-compose.yaml
 ```

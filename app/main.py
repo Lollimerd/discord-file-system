@@ -5,15 +5,11 @@ import os
 import sys
 
 # Add project root to sys.path to allow running this file directly
-# Project root is 2 directories up from this file (src/app/main.py -> src/app -> src -> root)
-if __name__ == "__main__" and __package__ is None:
-    # This hack allows relative imports to work when running directly
-    # We add the root directory to path, then explicitly import the module inside the 'src.app' package
-    root_dir = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
-    sys.path.append(root_dir)
-    __package__ = "src.app"
+# Project root is 1 directory up from this file (app/main.py -> app -> root)
+if __name__ == "__main__":
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if root_dir not in sys.path:
+        sys.path.insert(0, root_dir)
 
 from flask import (
     Flask,
@@ -27,8 +23,8 @@ from flask import (
     after_this_request,
 )
 from dotenv import load_dotenv
-from ..dis_commands import bot
-from ..utils.util import (
+from dis_commands import bot
+from utils.util import (
     logger,
     cipher,
     DATA_DIRECTORY,
@@ -36,7 +32,7 @@ from ..utils.util import (
     fetch_channels_from_guild,
     process_and_chunk_file,
 )
-from ..utils.file_ops import (
+from utils.file_ops import (
     upload_single_file,
     upload_folder,
     download_from_discord,
@@ -321,7 +317,7 @@ def delete_route():
 
 # --- Main Execution ---
 def run_flask():
-    app.run(use_reloader=False, port=5000, host="0.0.0.0")
+    app.run(use_reloader=False, port=2500, host="0.0.0.0")
 
 
 if __name__ == "__main__":

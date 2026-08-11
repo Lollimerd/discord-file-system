@@ -4,7 +4,7 @@ import json
 import uuid
 import asyncio
 import shutil
-from ..dis_commands import bot
+from dis_commands import bot
 from .util import logger, cipher, DATA_DIRECTORY, process_and_chunk_file
 
 # --- Listing Operations ---
